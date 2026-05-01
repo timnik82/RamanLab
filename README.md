@@ -48,6 +48,16 @@ RamanLab is a comprehensive Python-based application for Raman spectroscopy data
    pip install -r requirements_qt6.txt
    ```
 
+## Results Panel (Peak Fitting)
+
+After running peak fitting on a Raman map, RamanLab computes summary statistics derived from the fitted peak parameters and displays them in the UI ("Results Panel"), including:
+
+- Grand total integrated area across all successfully fitted pixels
+- Per-peak integrated area totals for multi-peak fits
+- Success/failure handling: failed pixels are excluded from totals
+
+These same integrated-intensity values are also exported to CSV as `P{i}_IntInt` (per peak) and `Total_IntInt` (grand total per pixel).
+
 4. **Verify installation** (Recommended):
    ```bash
    python check_dependencies.py
