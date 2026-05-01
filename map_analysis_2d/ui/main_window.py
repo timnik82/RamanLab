@@ -759,6 +759,7 @@ class MapAnalysisMainWindow(QMainWindow):
             control_panel.run_map_fitting_requested.connect(self.run_map_peak_fitting)
             control_panel.visualization_parameter_changed.connect(self.update_peak_fitting_visualization)
             control_panel.export_batch_requested.connect(self.export_map_peak_fitting_to_batch)
+            control_panel.export_results_csv_requested.connect(self.export_map_peak_fitting_results_csv)
             self.controls_panel.add_section("peak_fitting_controls", control_panel)
 
             if self.peak_fitting_config is not None:
@@ -767,6 +768,7 @@ class MapAnalysisMainWindow(QMainWindow):
 
             if self.peak_fitting_results is not None:
                 control_panel.export_batch_btn.setEnabled(True)
+                control_panel.export_results_csv_btn.setEnabled(True)
                 # If config was not set above (no cached config), trigger an initial visualization
                 if self.peak_fitting_config is None and self.map_data is not None:
                     self.update_peak_fitting_visualization(
@@ -10727,6 +10729,8 @@ The map is now ready for analysis!"""
         if control_panel is not None and self.peak_fitting_config is not None:
             control_panel.set_peak_configuration(self.peak_fitting_config)
             control_panel.export_batch_btn.setEnabled(True)
+            if hasattr(control_panel, 'export_results_csv_btn'):
+                control_panel.export_results_csv_btn.setEnabled(True)
 
         message = "Map peak fitting completed."
         if failed_fit_count:
@@ -10901,3 +10905,86 @@ The map is now ready for analysis!"""
             )
             return
         QMessageBox.information(self, "Success", f"Results exported to {file_path}")
+
+    def export_map_peak_fitting_results_csv(self):
+        """Export per-pixel peak fitting results to a single CSV."""
+        if self.peak_fitting_results is None:
+            QMessageBox.warning(self, "No Results", "No peak fitting results to export.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export Results CSV", "", "CSV Files (*.csv)"
+        )
+        if not file_path:
+            return
+
+        if not str(file_path).lower().endswith('.csv'):
+            file_path = f"{file_path}.csv"
+
+        try:
+            self._write_peak_fitting_results_csv(file_path)
+        except (OSError, PermissionError, UnicodeEncodeError) as e:
+            logger.error("Failed to export peak fitting results CSV to %s: %s", file_path, e)
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                f"Could not write to file:\n{file_path}\n\n{e}"
+            )
+            return
+        except Exception as e:
+            logger.exception("Unexpected error exporting peak fitting results CSV")
+            QMessageBox.critical(self, "Export Failed", f"Unexpected error:\n{e}")
+            return
+
+        QMessageBox.information(self, "Success", f"Results exported to {file_path}")
+
+    def _write_peak_fitting_results_csv(self, file_path: str):
+        import csv
+
+        results = self.peak_fitting_results
+        config = results.get('config', self.peak_fitting_config) or {}
+        num_peaks = int(config.get('num_peaks') or len(results.get('peak_shapes', [])) or 0)
+
+        map_params = results.get('map_parameters', {})
+        r_squared = results.get('r_squared', {})
+        fit_errors = results.get('fit_errors', {})
+
+        headers = ['X_um', 'Y_um']
+        for peak_idx in range(1, num_peaks + 1):
+            headers.extend([
+                f'Peak{peak_idx}_area',
+                f'Peak{peak_idx}_center',
+                f'Peak{peak_idx}_width',
+            ])
+        headers.extend(['R2', 'status'])
+
+        def _get_param(param_name: str, pos_key):
+            param_dict = map_params.get(param_name, {})
+            if pos_key in param_dict:
+                return param_dict[pos_key]
+            return float('nan')
+
+        with open(file_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+
+            for spectrum in self.map_data.spectra.values():
+                pos_key = (spectrum.x_pos, spectrum.y_pos)
+                failed = bool(fit_errors.get(pos_key))
+
+                row = [spectrum.x_pos, spectrum.y_pos]
+
+                for peak_idx in range(1, num_peaks + 1):
+                    area = _get_param(f'P{peak_idx}_Amp', pos_key)
+                    center = _get_param(f'P{peak_idx}_Cen', pos_key)
+                    width = _get_param(f'P{peak_idx}_Wid', pos_key)
+
+                    if failed:
+                        row.extend([float('nan'), float('nan'), float('nan')])
+                    else:
+                        row.extend([area, center, width])
+
+                r2_val = r_squared.get(pos_key, float('nan'))
+                status = 'failed' if failed else 'success'
+                row.extend([r2_val, status])
+                writer.writerow(row)
