@@ -1,10 +1,11 @@
 import pathlib
+import io
 import os
 import pickle
 import tempfile
 import unittest
 
-from pkl_utils import safe_pickle_load
+from pkl_utils import CrossPlatformUnpickler, safe_pickle_load
 
 
 class CrossPlatformPickleTests(unittest.TestCase):
@@ -30,6 +31,20 @@ class CrossPlatformPickleTests(unittest.TestCase):
 
         self.assertIs(type(loaded), pathlib.PosixPath)
         self.assertEqual(loaded, expected)
+
+    def test_cross_platform_unpickler_redirects_legacy_map_classes(self):
+        try:
+            from map_analysis_2d.core.file_io import RamanMapData
+        except ModuleNotFoundError as e:
+            if e.name == "numpy":
+                self.skipTest("RamanMapData import requires numpy")
+            raise
+
+        unpickler = CrossPlatformUnpickler(io.BytesIO())
+
+        loaded_class = unpickler.find_class("raman_map_data", "RamanMapData")
+
+        self.assertIs(loaded_class, RamanMapData)
 
 
 if __name__ == "__main__":
