@@ -10911,6 +10911,9 @@ The map is now ready for analysis!"""
         if self.peak_fitting_results is None:
             QMessageBox.warning(self, "No Results", "No peak fitting results to export.")
             return
+        if self.map_data is None or not getattr(self.map_data, 'spectra', None):
+            QMessageBox.warning(self, "No Map Data", "No map data is available for export.")
+            return
 
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Export Results CSV", "", "CSV Files (*.csv)"
@@ -10943,20 +10946,25 @@ The map is now ready for analysis!"""
 
         results = self.peak_fitting_results
         config = results.get('config', self.peak_fitting_config) or {}
-        num_peaks = int(config.get('num_peaks') or len(results.get('peak_shapes', [])) or 0)
+        shapes = list(results.get('peak_shapes') or config.get('shapes') or [])
+        num_peaks = int(results.get('n_peaks') or config.get('num_peaks') or len(shapes) or 0)
+        if len(shapes) < num_peaks:
+            shapes.extend([None] * (num_peaks - len(shapes)))
 
         map_params = results.get('map_parameters', {})
         r_squared = results.get('r_squared', {})
         fit_errors = results.get('fit_errors', {})
+        fit_warnings = results.get('fit_warnings', {})
 
         headers = ['X_um', 'Y_um']
         for peak_idx in range(1, num_peaks + 1):
-            headers.extend([
-                f'Peak{peak_idx}_area',
-                f'Peak{peak_idx}_center',
-                f'Peak{peak_idx}_width',
-            ])
-        headers.extend(['R2', 'status'])
+            peak_param_names = [f'P{peak_idx}_Amp', f'P{peak_idx}_Cen', f'P{peak_idx}_Wid']
+            eta_key = f'P{peak_idx}_Eta'
+            if eta_key in map_params or eta_key in results.get('param_names', []):
+                peak_param_names.append(eta_key)
+            headers.extend(peak_param_names)
+            headers.append(f'P{peak_idx}_IntInt')
+        headers.extend(['Total_IntInt', 'R2', 'status', 'Fit Error', 'Fit Warning'])
 
         def _get_param(param_name: str, pos_key):
             param_dict = map_params.get(param_name, {})
@@ -10964,7 +10972,7 @@ The map is now ready for analysis!"""
                 return param_dict[pos_key]
             return float('nan')
 
-        with open(file_path, 'w', newline='') as f:
+        with open(file_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(headers)
 
@@ -10973,18 +10981,41 @@ The map is now ready for analysis!"""
                 failed = bool(fit_errors.get(pos_key))
 
                 row = [spectrum.x_pos, spectrum.y_pos]
+                total_intensity = 0.0
+                all_integrals_valid = not failed
 
                 for peak_idx in range(1, num_peaks + 1):
-                    area = _get_param(f'P{peak_idx}_Amp', pos_key)
+                    amp = _get_param(f'P{peak_idx}_Amp', pos_key)
                     center = _get_param(f'P{peak_idx}_Cen', pos_key)
                     width = _get_param(f'P{peak_idx}_Wid', pos_key)
+                    row.extend([amp, center, width])
 
-                    if failed:
-                        row.extend([float('nan'), float('nan'), float('nan')])
+                    eta_key = f'P{peak_idx}_Eta'
+                    eta = _get_param(eta_key, pos_key) if eta_key in headers else 0.5
+                    if eta_key in headers:
+                        row.append(eta)
+
+                    shape = shapes[peak_idx - 1] if peak_idx - 1 < len(shapes) else None
+                    if failed or shape is None or not (np.isfinite(amp) and np.isfinite(width)):
+                        integrated_intensity = float('nan')
+                        all_integrals_valid = False
                     else:
-                        row.extend([area, center, width])
+                        eta_for_area = eta if np.isfinite(eta) else 0.5
+                        integrated_intensity = compute_integrated_intensity(amp, width, shape, eta_for_area)
+                        if np.isfinite(integrated_intensity):
+                            total_intensity += integrated_intensity
+                        else:
+                            all_integrals_valid = False
+                    row.append(integrated_intensity)
 
                 r2_val = r_squared.get(pos_key, float('nan'))
                 status = 'failed' if failed else 'success'
-                row.extend([r2_val, status])
+                total_value = total_intensity if all_integrals_valid else float('nan')
+                row.extend([
+                    total_value,
+                    r2_val,
+                    status,
+                    fit_errors.get(pos_key, ""),
+                    fit_warnings.get(pos_key, ""),
+                ])
                 writer.writerow(row)
