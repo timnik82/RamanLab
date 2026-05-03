@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter, 
     QTabWidget, QMessageBox, QFileDialog, QDialog, QTextEdit, QPushButton, QLabel
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction, QFont
 from datetime import datetime
 
@@ -118,7 +118,7 @@ class SimpleMapData:
                 # Use raw intensities if no processed data available
                 data_matrix[spectrum_index, :] = spectrum.intensities
             spectrum_index += 1
-        
+
         return data_matrix
 
 
@@ -458,7 +458,7 @@ class MapAnalysisMainWindow(QMainWindow):
         
         # Make the splitter handle more responsive
         self.splitter.setOpaqueResize(True)  # Show content while dragging
-        
+
     def create_permanent_controls(self):
         """Create controls that are always visible."""
         # Data loading functions have been moved to the File menu
@@ -521,7 +521,7 @@ class MapAnalysisMainWindow(QMainWindow):
         """Create the results summary tab."""
         from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QLabel, QTextEdit
         from PySide6.QtCore import Qt
-        
+
         # Create the main widget for the results tab
         results_widget = QWidget()
         self.results_tab_widget = results_widget
@@ -542,7 +542,7 @@ class MapAnalysisMainWindow(QMainWindow):
         header_layout.addWidget(self.export_results_btn)
         
         results_layout.addLayout(header_layout)
-        
+
         # Create the comprehensive plot widget
         self.results_plot_widget = BasePlotWidget(figsize=(14, 10))
         results_layout.addWidget(self.results_plot_widget)
@@ -760,11 +760,17 @@ class MapAnalysisMainWindow(QMainWindow):
             control_panel.visualization_parameter_changed.connect(self.update_peak_fitting_visualization)
             control_panel.export_batch_requested.connect(self.export_map_peak_fitting_to_batch)
             control_panel.export_results_csv_requested.connect(self.export_map_peak_fitting_results_csv)
+            control_panel.fitting_config_changed.connect(control_panel.results_panel.clear)
             self.controls_panel.add_section("peak_fitting_controls", control_panel)
 
             if self.peak_fitting_config is not None:
                 # Restores all spinboxes and combo selection; fires visualization_parameter_changed once
                 control_panel.set_peak_configuration(self.peak_fitting_config)
+
+            pending = getattr(self, "_pending_peak_fitting_stats", None)
+            if pending is not None:
+                control_panel.results_panel.overall_stats.update_from_fitting_results(pending)
+                self._pending_peak_fitting_stats = None
 
             if self.peak_fitting_results is not None:
                 control_panel.export_batch_btn.setEnabled(True)
@@ -1176,10 +1182,138 @@ class MapAnalysisMainWindow(QMainWindow):
             return
 
         try:
-            self._display_selected_spectrum(x, y, self.peak_fitting_plot_widget, include_template_overlay=False)
+            self._display_peak_fitting_pixel_details_and_spectrum(x, y)
         except Exception as e:
             logger.error(f"Error displaying peak fitting spectrum: {e}")
             QMessageBox.warning(self, "Error", f"Failed to display peak fitting spectrum:\n{str(e)}")
+
+    def _display_peak_fitting_pixel_details_and_spectrum(self, x: float, y: float):
+        """Update pixel details + spectrum pane for the clicked position."""
+        closest_spectrum = self.find_closest_spectrum(x, y)
+        if closest_spectrum is None:
+            return
+
+        self.peak_fitting_plot_widget.add_map_marker(closest_spectrum.x_pos, closest_spectrum.y_pos)
+
+        cp = self.get_current_peak_fitting_control_panel()
+        pixel_details = cp.results_panel.pixel_details if cp is not None else None
+
+        pos_key = (closest_spectrum.x_pos, closest_spectrum.y_pos)
+        position_text = self._format_pixel_position(closest_spectrum)
+
+        results = self.peak_fitting_results
+        if results is None:
+            if pixel_details is not None:
+                pixel_details.clear()
+            self._display_selected_spectrum(x, y, self.peak_fitting_plot_widget, include_template_overlay=False, add_marker=False)
+            return
+
+        fit_errors = results.get("fit_errors", {})
+        has_fit_error = bool(fit_errors.get(pos_key))
+
+        if has_fit_error:
+            if pixel_details is not None:
+                pixel_details.show_fit_failed(position_text)
+            self._display_selected_spectrum(x, y, self.peak_fitting_plot_widget, include_template_overlay=False, add_marker=False)
+            return
+
+        shapes = results.get("peak_shapes", [])
+        map_params = results.get("map_parameters", {})
+        r_squared_val = results.get("r_squared", {}).get(pos_key)
+
+        _PSEUDO_VOIGT_DEFAULT_ETA = 0.5  # mixing ratio used when not stored in fit results
+        peak_rows = []
+        model_params = []
+        component_params: list[tuple[str, str, list]] = []
+
+        for i, shape in enumerate(shapes, start=1):
+            amp = map_params.get(f"P{i}_Amp", {}).get(pos_key, np.nan)
+            cen = map_params.get(f"P{i}_Cen", {}).get(pos_key, np.nan)
+            wid = map_params.get(f"P{i}_Wid", {}).get(pos_key, np.nan)
+            eta = map_params.get(f"P{i}_Eta", {}).get(pos_key, _PSEUDO_VOIGT_DEFAULT_ETA)
+            area = compute_integrated_intensity(amp, wid, shape, eta)
+            peak_rows.append((f"P{i}", float(area), float(cen), float(wid)))
+
+            params = [amp, cen, wid] if shape != "Pseudo-Voigt" else [amp, cen, wid, eta]
+            model_params.extend(params)
+            component_params.append((f"P{i}", shape, params))
+
+        r_squared_value = float(r_squared_val) if r_squared_val is not None and np.isfinite(r_squared_val) else None
+        if pixel_details is not None:
+            pixel_details.show_results(
+                position_text=position_text,
+                r_squared=r_squared_value,
+                peak_rows=peak_rows,
+            )
+
+        # Plot raw + total fit + components (dashed)
+        self.peak_fitting_plot_widget.show_spectrum_panel(True)
+        spectrum_view = self._capture_peak_fitting_spectrum_view(self.peak_fitting_plot_widget)
+
+        wavenumbers = closest_spectrum.wavenumbers
+        intensities = (
+            closest_spectrum.processed_intensities
+            if self.use_processed and closest_spectrum.processed_intensities is not None
+            else closest_spectrum.intensities
+        )
+
+        spectrum_ax = self.peak_fitting_plot_widget.spectrum_widget.ax
+        spectrum_ax.clear()
+        spectrum_ax.plot(wavenumbers, intensities, color="red", linewidth=1.5, label="Raw spectrum")
+
+        model_func = create_multi_peak_model(shapes)
+        try:
+            total_fit = model_func(wavenumbers, *model_params)
+            spectrum_ax.plot(wavenumbers, total_fit, color="black", linewidth=1.5, label="Total fit")
+
+            for peak_name, shape, params in component_params:
+                func = get_peak_function(shape)
+                n_params = get_num_params_for_shape(shape)
+                component_y = func(wavenumbers, *params[:n_params])
+                spectrum_ax.plot(
+                    wavenumbers,
+                    component_y,
+                    linestyle="--",
+                    linewidth=1.2,
+                    label=f"{peak_name} {shape}",
+                )
+        except Exception as exc:
+            logger.debug("Failed to render fit overlay for %s: %s", pos_key, exc)
+
+        spectrum_ax.set_xlabel("Wavenumber (cm⁻¹)")
+        spectrum_ax.set_ylabel("Intensity")
+        spectrum_ax.set_title(position_text)
+        spectrum_ax.grid(True, alpha=0.3)
+        n_legend_items = 2 + len(shapes)  # raw + total fit + one per peak component
+        legend_fontsize = "small" if n_legend_items > 5 else None
+        spectrum_ax.legend(fontsize=legend_fontsize)
+
+        self._restore_peak_fitting_spectrum_view(self.peak_fitting_plot_widget, spectrum_view)
+        self.peak_fitting_plot_widget.spectrum_widget.draw()
+
+        self.current_selected_spectrum = closest_spectrum
+        self.current_marker_position = pos_key
+
+    def _format_pixel_position(self, spectrum) -> str:
+        """Return a user-facing position string (μm when available)."""
+        metadata = getattr(self.map_data, "metadata", {}) if self.map_data is not None else {}
+        spatial = {}
+        if isinstance(metadata, dict):
+            spatial = metadata.get("spatial", {}) or metadata.get("spatial_metadata", {}) or {}
+
+        x_unit = ""
+        y_unit = ""
+        if isinstance(spatial, dict):
+            x_unit = spatial.get("x_unit") or spatial.get("xUnit") or spatial.get("x_units") or ""
+            y_unit = spatial.get("y_unit") or spatial.get("yUnit") or spatial.get("y_units") or ""
+
+        unit_blob = f"{x_unit} {y_unit}".lower()
+        has_um = "µm" in unit_blob or "um" in unit_blob
+
+        if has_um:
+            return f"Position: ({spectrum.x_pos:.2f} µm, {spectrum.y_pos:.2f} µm)"
+
+        return f"Position: ({spectrum.x_pos:.1f}, {spectrum.y_pos:.1f})"
             
     def find_closest_spectrum(self, x: float, y: float):
         """Find the spectrum closest to the given coordinates."""
@@ -1222,7 +1356,7 @@ class MapAnalysisMainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"Error adding position marker: {e}")
 
-    def _display_selected_spectrum(self, x: float, y: float, plot_widget, include_template_overlay: bool):
+    def _display_selected_spectrum(self, x: float, y: float, plot_widget, include_template_overlay: bool, add_marker: bool = True):
         """Render the selected spectrum into the requested plot widget."""
         closest_spectrum = self.find_closest_spectrum(x, y)
         if closest_spectrum is None:
@@ -1277,7 +1411,8 @@ class MapAnalysisMainWindow(QMainWindow):
         self._restore_peak_fitting_spectrum_view(plot_widget, spectrum_view)
         plot_widget.spectrum_widget.draw()
 
-        self.add_position_marker(closest_spectrum.x_pos, closest_spectrum.y_pos, plot_widget)
+        if add_marker:
+            self.add_position_marker(closest_spectrum.x_pos, closest_spectrum.y_pos, plot_widget)
         self.current_marker_position = (closest_spectrum.x_pos, closest_spectrum.y_pos)
         self.current_selected_spectrum = closest_spectrum
 
@@ -1353,6 +1488,9 @@ class MapAnalysisMainWindow(QMainWindow):
             self.progress_status.hide_progress()
 
         self.peak_fitting_results = None
+        cp = self.get_current_peak_fitting_control_panel()
+        if cp is not None:
+            cp.results_panel.clear()
         if clear_config:
             self.peak_fitting_config = None
 
@@ -10708,6 +10846,7 @@ The map is now ready for analysis!"""
         self.progress_status.update_progress(0, "Preparing peak fitting worker...")
         self.peak_fitting_worker = PeakFittingWorker(list(self.map_data.spectra.values()), self.use_processed, config)
         self.peak_fitting_worker.progress_updated.connect(self._on_peak_fitting_progress)
+        self.peak_fitting_worker.fitting_complete.connect(self._on_peak_fitting_stats_ready)
         self.peak_fitting_worker.fitting_complete.connect(self._on_peak_fitting_complete)
         self.peak_fitting_worker.fitting_failed.connect(self._on_peak_fitting_failed)
         self.peak_fitting_worker.finished.connect(self._on_peak_fitting_worker_finished)
@@ -10717,6 +10856,15 @@ The map is now ready for analysis!"""
         """Handle progress updates from the peak fitting worker."""
         progress = 0 if total == 0 else int((current / total) * 100)
         self.progress_status.update_progress(progress, message)
+
+    @Slot(dict)
+    def _on_peak_fitting_stats_ready(self, fitting_results: dict):
+        """Forward fitting results to the current results panel, or cache for later."""
+        cp = self.get_current_peak_fitting_control_panel()
+        if cp is not None:
+            cp.results_panel.overall_stats.update_from_fitting_results(fitting_results)
+        else:
+            self._pending_peak_fitting_stats = fitting_results
 
     def _on_peak_fitting_complete(self, results: dict):
         """Handle successful completion of map peak fitting."""
