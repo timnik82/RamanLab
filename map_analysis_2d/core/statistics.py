@@ -92,12 +92,17 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
         total_areas.append(total_area)
         grand_total += total_area
 
-    if not any_valid:
-        return None
-
     fitted_count = len(total_areas)
     total_count = len(positions)
     success_rate = (fitted_count / total_count) * 100.0 if total_count else 0.0
+    if any_valid:
+        mean_area = float(np.mean(total_areas))
+        median_area = float(np.median(total_areas))
+        std_area = float(np.std(total_areas))
+    else:
+        mean_area = 0.0
+        median_area = 0.0
+        std_area = 0.0
 
     return OverallStatistics(
         per_peak_total_areas=[float(v) for v in per_peak_totals],
@@ -105,8 +110,8 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
         fitted_count=fitted_count,
         total_count=total_count,
         success_rate=success_rate,
-        mean_area=float(np.mean(total_areas)),
-        median_area=float(np.median(total_areas)),
-        std_area=float(np.std(total_areas)),
+        mean_area=mean_area,
+        median_area=median_area,
+        std_area=std_area,
         total_areas=total_areas,
     )

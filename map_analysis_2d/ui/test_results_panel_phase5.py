@@ -18,8 +18,12 @@ def test_results_panel_has_collapsible_sections_and_loading_state():
 
     assert panel.overall_section.toggle_button.toolTip()
     assert panel.pixel_section.toggle_button.toolTip()
-    assert not panel.overall_section.toggle_button.icon().isNull()
-    assert not panel.pixel_section.toggle_button.icon().isNull()
+
+    assert not panel.overall_section.child.isHidden()
+    panel.overall_section.toggle_button.click()
+    assert panel.overall_section.child.isHidden()
+    panel.overall_section.toggle_button.click()
+    assert not panel.overall_section.child.isHidden()
 
     panel.set_loading(True, "Computing statistics...")
     assert not panel.overall_stats.loading_label.isHidden()
@@ -55,6 +59,16 @@ def test_overall_stats_widget_displays_phase5_metrics_and_histogram():
 
     panel.overall_stats.scientific_toggle.setChecked(True)
     assert "e+" in panel.overall_stats.grand_total_label.text()
+
+
+def test_overall_stats_histogram_omits_empty_bins():
+    _app()
+    panel = ResultsPanel()
+
+    panel.overall_stats.histogram_widget.set_values([1.0, 100.0, 101.0])
+
+    assert panel.overall_stats.histogram_widget.bin_count == 2
+    assert panel.overall_stats.histogram_widget._bar_layout.count() == 2
 
 
 def test_pixel_details_widget_color_codes_status_and_adds_tooltips():

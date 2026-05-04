@@ -48,3 +48,27 @@ def test_compute_overall_statistics_reports_area_distribution_values():
     assert np.isclose(stats.mean_area, np.mean([first_area, second_area]))
     assert np.isclose(stats.median_area, np.median([first_area, second_area]))
     assert np.isclose(stats.std_area, np.std([first_area, second_area]))
+
+
+def test_compute_overall_statistics_reports_zero_success_when_all_positions_fail():
+    results = {
+        "peak_shapes": ["Lorentzian"],
+        "map_parameters": {
+            "P1_Amp": {(0, 0): 2.0, (1, 0): np.nan},
+            "P1_Wid": {(0, 0): 3.0, (1, 0): 5.0},
+        },
+        "fit_errors": {(0, 0): "fit failed"},
+    }
+
+    stats = compute_overall_statistics(results)
+
+    assert stats is not None
+    assert stats.fitted_count == 0
+    assert stats.total_count == 2
+    assert stats.success_rate == 0.0
+    assert stats.per_peak_total_areas == [0.0]
+    assert stats.grand_total_area == 0.0
+    assert stats.mean_area == 0.0
+    assert stats.median_area == 0.0
+    assert stats.std_area == 0.0
+    assert stats.total_areas == []

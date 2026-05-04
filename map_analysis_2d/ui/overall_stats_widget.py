@@ -57,12 +57,14 @@ class MiniHistogramWidget(QFrame):
             self.hide()
             return
 
-        bins = min(10, max(3, int(np.sqrt(finite_values.size))))
+        bins = min(10, finite_values.size, max(3, int(np.sqrt(finite_values.size))))
         counts, _ = np.histogram(finite_values, bins=bins)
         max_count = int(np.max(counts)) if counts.size else 0
         self.bin_count = int(np.count_nonzero(counts))
 
         for count in counts:
+            if count == 0:
+                continue
             bar = QFrame()
             bar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             height = 4 if max_count == 0 else max(4, int(34 * (count / max_count)))
