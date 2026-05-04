@@ -60,12 +60,14 @@ class PixelDetailsWidget(QWidget):
         self.position_label.setText("Click the peak fitting map")
         self.r_squared_label.setText("")
         self.status_label.setText("")
+        self.status_label.setStyleSheet("color: #777;")
         self.table.setRowCount(0)
 
     def show_fit_failed(self, position_text: str):
         self.position_label.setText(position_text)
         self.r_squared_label.setText("")
         self.status_label.setText("Fit failed for this pixel")
+        self.status_label.setStyleSheet("color: #c53030; font-weight: bold;")
         self.table.setRowCount(0)
 
     def show_results(
@@ -76,16 +78,33 @@ class PixelDetailsWidget(QWidget):
         peak_rows: Sequence[Tuple[str, float, float, float]],
     ):
         self.position_label.setText(position_text)
-        self.status_label.setText("")
         if r_squared is None:
             self.r_squared_label.setText("")
+            self.status_label.setText("Fit quality unavailable")
+            self.status_label.setStyleSheet("color: #777;")
         else:
             self.r_squared_label.setText(f"R²: {r_squared:.3f}")
+            if r_squared >= 0.9:
+                self.status_label.setText("Fit successful")
+                self.status_label.setStyleSheet("color: green; font-weight: bold;")
+            elif r_squared >= 0.7:
+                self.status_label.setText("Review fit quality")
+                self.status_label.setStyleSheet("color: #b7791f; font-weight: bold;")
+            else:
+                self.status_label.setText("Poor fit quality")
+                self.status_label.setStyleSheet("color: #c53030; font-weight: bold;")
 
         self.table.setRowCount(len(peak_rows))
         for row_idx, (peak_name, area, center, width) in enumerate(peak_rows):
             values = [peak_name, f"{area:.2f}", f"{center:.2f}", f"{width:.2f}"]
+            tooltips = [
+                "Fitted peak identifier.",
+                "Integrated intensity for this peak at the selected pixel.",
+                "Fitted center position.",
+                "Fitted peak width.",
+            ]
             for col_idx, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item.setToolTip(tooltips[col_idx])
                 self.table.setItem(row_idx, col_idx, item)

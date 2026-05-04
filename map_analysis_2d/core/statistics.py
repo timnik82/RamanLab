@@ -17,6 +17,13 @@ PosKey = Tuple[float, float]
 class OverallStatistics:
     per_peak_total_areas: List[float]
     grand_total_area: float
+    fitted_count: int
+    total_count: int
+    success_rate: float
+    mean_area: float
+    median_area: float
+    std_area: float
+    total_areas: List[float]
 
 
 def _iter_positions(*param_maps: Mapping[PosKey, float]) -> Iterable[PosKey]:
@@ -50,15 +57,17 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
     peak_wid_dicts = [map_params.get(f"P{i}_Wid", {}) for i in range(1, len(shapes) + 1)]
     peak_eta_dicts = [map_params.get(f"P{i}_Eta", {}) for i in range(1, len(shapes) + 1)]
 
-    positions = _iter_positions(*peak_amp_dicts, *peak_wid_dicts)
+    positions = set(_iter_positions(*peak_amp_dicts, *peak_wid_dicts))
+    positions.update(fit_errors.keys())
     if not positions:
         return None
 
     per_peak_totals = np.zeros(len(shapes), dtype=float)
     grand_total = 0.0
+    total_areas: List[float] = []
     any_valid = False
 
-    for pos_key in positions:
+    for pos_key in sorted(positions, key=lambda pos: (pos[1], pos[0])):
         if fit_errors.get(pos_key):
             continue
 
@@ -79,12 +88,30 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
         any_valid = True
         for idx, value in enumerate(per_pos_values):
             per_peak_totals[idx] += value
-        grand_total += float(sum(per_pos_values))
+        total_area = float(sum(per_pos_values))
+        total_areas.append(total_area)
+        grand_total += total_area
 
-    if not any_valid:
-        return None
+    fitted_count = len(total_areas)
+    total_count = len(positions)
+    success_rate = (fitted_count / total_count) * 100.0 if total_count else 0.0
+    if any_valid:
+        mean_area = float(np.mean(total_areas))
+        median_area = float(np.median(total_areas))
+        std_area = float(np.std(total_areas))
+    else:
+        mean_area = 0.0
+        median_area = 0.0
+        std_area = 0.0
 
     return OverallStatistics(
         per_peak_total_areas=[float(v) for v in per_peak_totals],
         grand_total_area=float(grand_total),
+        fitted_count=fitted_count,
+        total_count=total_count,
+        success_rate=success_rate,
+        mean_area=mean_area,
+        median_area=median_area,
+        std_area=std_area,
+        total_areas=total_areas,
     )

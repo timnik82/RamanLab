@@ -10764,6 +10764,8 @@ The map is now ready for analysis!"""
             return
 
         invalidate_peak_fitting_results(self, control_panel)
+        if control_panel is not None:
+            control_panel.results_panel.set_loading(True, "Running map fitting...")
         self.progress_status.show_progress("Running map peak fitting...")
         self.progress_status.update_progress(0, "Preparing peak fitting worker...")
         self.peak_fitting_worker = PeakFittingWorker(list(self.map_data.spectra.values()), self.use_processed, config)
@@ -10778,6 +10780,9 @@ The map is now ready for analysis!"""
         """Handle progress updates from the peak fitting worker."""
         progress = 0 if total == 0 else int((current / total) * 100)
         self.progress_status.update_progress(progress, message)
+        cp = self.get_current_peak_fitting_control_panel()
+        if cp is not None:
+            cp.results_panel.set_loading(True, message)
 
     @Slot(dict)
     def _on_peak_fitting_stats_ready(self, fitting_results: dict):
@@ -10785,6 +10790,7 @@ The map is now ready for analysis!"""
         cp = self.get_current_peak_fitting_control_panel()
         if cp is not None:
             cp.results_panel.overall_stats.update_from_fitting_results(fitting_results)
+            cp.results_panel.set_loading(False)
         else:
             self._pending_peak_fitting_stats = fitting_results
 
@@ -10818,6 +10824,9 @@ The map is now ready for analysis!"""
 
     def _on_peak_fitting_failed(self, error_msg: str):
         """Handle a peak fitting worker failure."""
+        cp = self.get_current_peak_fitting_control_panel()
+        if cp is not None:
+            cp.results_panel.set_loading(False)
         QMessageBox.critical(self, "Peak Fitting Error", f"Error during map peak fitting:\n{error_msg}")
         logger.error(f"Map peak fitting error: {error_msg}")
 
