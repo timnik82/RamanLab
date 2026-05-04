@@ -10877,8 +10877,7 @@ The map is now ready for analysis!"""
         if control_panel is not None and self.peak_fitting_config is not None:
             control_panel.set_peak_configuration(self.peak_fitting_config)
             control_panel.export_batch_btn.setEnabled(True)
-            if hasattr(control_panel, 'export_results_csv_btn'):
-                control_panel.export_results_csv_btn.setEnabled(True)
+            control_panel.export_results_csv_btn.setEnabled(True)
 
         message = "Map peak fitting completed."
         if failed_fit_count:
@@ -11103,28 +11102,37 @@ The map is now ready for analysis!"""
         r_squared = results.get('r_squared', {})
         fit_errors = results.get('fit_errors', {})
         fit_warnings = results.get('fit_warnings', {})
+        result_param_names = set(results.get('param_names', []))
 
         headers = ['X_um', 'Y_um']
+        peak_lookups = []
         for peak_idx in range(1, num_peaks + 1):
             peak_param_names = [f'P{peak_idx}_Amp', f'P{peak_idx}_Cen', f'P{peak_idx}_Wid']
             eta_key = f'P{peak_idx}_Eta'
-            if eta_key in map_params or eta_key in results.get('param_names', []):
+            has_eta = eta_key in map_params or eta_key in result_param_names
+            if has_eta:
                 peak_param_names.append(eta_key)
             headers.extend(peak_param_names)
             headers.append(f'P{peak_idx}_IntInt')
+            peak_lookups.append({
+                'amp': map_params.get(f'P{peak_idx}_Amp', {}),
+                'center': map_params.get(f'P{peak_idx}_Cen', {}),
+                'width': map_params.get(f'P{peak_idx}_Wid', {}),
+                'eta': map_params.get(eta_key, {}),
+                'has_eta': has_eta,
+                'shape': shapes[peak_idx - 1] if peak_idx - 1 < len(shapes) else None,
+            })
         headers.extend(['Total_IntInt', 'R2', 'status', 'Fit Error', 'Fit Warning'])
-
-        def _get_param(param_name: str, pos_key):
-            param_dict = map_params.get(param_name, {})
-            if pos_key in param_dict:
-                return param_dict[pos_key]
-            return float('nan')
 
         with open(file_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(headers)
 
-            for spectrum in self.map_data.spectra.values():
+            sorted_spectra = sorted(
+                self.map_data.spectra.values(),
+                key=lambda spectrum: (spectrum.y_pos, spectrum.x_pos),
+            )
+            for spectrum in sorted_spectra:
                 pos_key = (spectrum.x_pos, spectrum.y_pos)
                 failed = bool(fit_errors.get(pos_key))
 
@@ -11132,20 +11140,21 @@ The map is now ready for analysis!"""
                 total_intensity = 0.0
                 all_integrals_valid = not failed
 
-                for peak_idx in range(1, num_peaks + 1):
-                    amp = _get_param(f'P{peak_idx}_Amp', pos_key)
-                    center = _get_param(f'P{peak_idx}_Cen', pos_key)
-                    width = _get_param(f'P{peak_idx}_Wid', pos_key)
+                for peak_lookup in peak_lookups:
+                    amp = peak_lookup['amp'].get(pos_key, np.nan)
+                    center = peak_lookup['center'].get(pos_key, np.nan)
+                    width = peak_lookup['width'].get(pos_key, np.nan)
                     row.extend([amp, center, width])
 
-                    eta_key = f'P{peak_idx}_Eta'
-                    eta = _get_param(eta_key, pos_key) if eta_key in headers else 0.5
-                    if eta_key in headers:
+                    if peak_lookup['has_eta']:
+                        eta = peak_lookup['eta'].get(pos_key, np.nan)
                         row.append(eta)
+                    else:
+                        eta = 0.5
 
-                    shape = shapes[peak_idx - 1] if peak_idx - 1 < len(shapes) else None
+                    shape = peak_lookup['shape']
                     if failed or shape is None or not (np.isfinite(amp) and np.isfinite(width)):
-                        integrated_intensity = float('nan')
+                        integrated_intensity = np.nan
                         all_integrals_valid = False
                     else:
                         eta_for_area = eta if np.isfinite(eta) else 0.5
@@ -11156,9 +11165,9 @@ The map is now ready for analysis!"""
                             all_integrals_valid = False
                     row.append(integrated_intensity)
 
-                r2_val = r_squared.get(pos_key, float('nan'))
+                r2_val = r_squared.get(pos_key, np.nan)
                 status = 'failed' if failed else 'success'
-                total_value = total_intensity if all_integrals_valid else float('nan')
+                total_value = total_intensity if all_integrals_valid else np.nan
                 row.extend([
                     total_value,
                     r2_val,

@@ -14,8 +14,8 @@ class PeakFittingResultsCsvExportTest(unittest.TestCase):
         window.peak_fitting_config = None
         window.map_data = SimpleNamespace(
             spectra={
-                (1, 2): SimpleNamespace(x_pos=1, y_pos=2),
                 (3, 4): SimpleNamespace(x_pos=3, y_pos=4),
+                (1, 2): SimpleNamespace(x_pos=1, y_pos=2),
             }
         )
         window.peak_fitting_results = {
@@ -71,6 +71,10 @@ class PeakFittingResultsCsvExportTest(unittest.TestCase):
                 "Fit Error",
                 "Fit Warning",
             ],
+        )
+        self.assertEqual(
+            [(row["X_um"], row["Y_um"]) for row in rows],
+            [("1", "2"), ("3", "4")],
         )
         self.assertAlmostEqual(float(rows[0]["P1_IntInt"]), 2.0 * 3.0 * math.pi)
         self.assertAlmostEqual(
