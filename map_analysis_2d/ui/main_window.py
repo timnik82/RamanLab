@@ -7358,7 +7358,7 @@ The map is now ready for analysis!"""
                 self._reset_peak_fitting_state(clear_config=True)
                 if 'cosmic_ray_config' in save_data:
                     self.cosmic_ray_config = save_data['cosmic_ray_config']
-                self.cosmic_ray_manager = SimpleCosmicRayManager(self.cosmic_ray_config)
+                    self.cosmic_ray_manager = SimpleCosmicRayManager(self.cosmic_ray_config)
             else:
                 self.map_data = save_data
                 self._reset_peak_fitting_state(clear_config=True)
