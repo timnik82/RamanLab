@@ -6747,11 +6747,9 @@ All spectra have been processed and cleaned data is now available for analysis."
         try:
             self.progress_status.show_progress("Loading map data from PKL...")
             
-            from pkl_utils import CrossPlatformUnpickler
+            from pkl_utils import safe_pickle_load
             
-            with open(file_path, 'rb') as f:
-                unpickler = CrossPlatformUnpickler(f)
-                save_data = unpickler.load()
+            save_data = safe_pickle_load(file_path)
             
             # Extract data based on file format
             if isinstance(save_data, dict):
@@ -7346,11 +7344,9 @@ The map is now ready for analysis!"""
         try:
             self.progress_status.show_progress("Loading PKL file...")
             
-            from pkl_utils import CrossPlatformUnpickler
+            from pkl_utils import safe_pickle_load
             
-            with open(file_path, 'rb') as f:
-                unpickler = CrossPlatformUnpickler(f)
-                save_data = unpickler.load()
+            save_data = safe_pickle_load(file_path)
             
             # Extract map data
             if isinstance(save_data, dict) and 'map_data' in save_data:
