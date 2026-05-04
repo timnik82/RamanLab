@@ -28,6 +28,7 @@ class DummyButton:
 class DummyControlPanel:
     def __init__(self):
         self.export_batch_btn = DummyButton()
+        self.export_results_csv_btn = DummyButton()
 
 
 class DummyWindow:
@@ -48,6 +49,7 @@ class PeakFittingReviewFixTests(unittest.TestCase):
 
         self.assertIsNone(window.peak_fitting_results)
         self.assertFalse(control_panel.export_batch_btn.enabled)
+        self.assertFalse(control_panel.export_results_csv_btn.enabled)
 
     def test_merging_config_preserves_existing_visualization_selection(self):
         state_module = load_module(

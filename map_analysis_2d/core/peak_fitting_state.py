@@ -13,6 +13,9 @@ def invalidate_peak_fitting_results(owner, control_panel=None):
     if control_panel is not None and hasattr(control_panel, "export_batch_btn"):
         control_panel.export_batch_btn.setEnabled(False)
 
+    if control_panel is not None and hasattr(control_panel, "export_results_csv_btn"):
+        control_panel.export_results_csv_btn.setEnabled(False)
+
 
 def merge_peak_fitting_configuration(existing_config, panel_config):
     """Merge fresh panel parameters while preserving the selected map visualization."""
