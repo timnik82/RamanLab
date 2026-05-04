@@ -1475,6 +1475,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
     test_fit_requested = Signal()
     run_map_fitting_requested = Signal()
     export_batch_requested = Signal()
+    export_results_csv_requested = Signal()
     visualization_parameter_changed = Signal(str)
     fitting_config_changed = Signal()
     
@@ -1558,6 +1559,12 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.export_batch_btn.setEnabled(False)
         self.export_batch_btn.clicked.connect(self.export_batch_requested.emit)
         actions_layout.addWidget(self.export_batch_btn)
+
+        self.export_results_csv_btn = StandardButton("Export Results CSV")
+        self.export_results_csv_btn.setToolTip("Export one row per pixel with peak parameters")
+        self.export_results_csv_btn.setEnabled(False)
+        self.export_results_csv_btn.clicked.connect(self.export_results_csv_requested.emit)
+        actions_layout.addWidget(self.export_results_csv_btn)
         
         self.layout.addWidget(actions_group)
 

@@ -88,4 +88,3 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
         per_peak_total_areas=[float(v) for v in per_peak_totals],
         grand_total_area=float(grand_total),
     )
-

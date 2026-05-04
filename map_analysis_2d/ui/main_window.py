@@ -757,6 +757,7 @@ class MapAnalysisMainWindow(QMainWindow):
             control_panel.run_map_fitting_requested.connect(self.run_map_peak_fitting)
             control_panel.visualization_parameter_changed.connect(self.update_peak_fitting_visualization)
             control_panel.export_batch_requested.connect(self.export_map_peak_fitting_to_batch)
+            control_panel.export_results_csv_requested.connect(self.export_map_peak_fitting_results_csv)
             control_panel.fitting_config_changed.connect(control_panel.results_panel.clear)
             self.controls_panel.add_section("peak_fitting_controls", control_panel)
 
@@ -771,6 +772,7 @@ class MapAnalysisMainWindow(QMainWindow):
 
             if self.peak_fitting_results is not None:
                 control_panel.export_batch_btn.setEnabled(True)
+                control_panel.export_results_csv_btn.setEnabled(True)
                 # If config was not set above (no cached config), trigger an initial visualization
                 if self.peak_fitting_config is None and self.map_data is not None:
                     self.update_peak_fitting_visualization(
@@ -10797,6 +10799,7 @@ The map is now ready for analysis!"""
         if control_panel is not None and self.peak_fitting_config is not None:
             control_panel.set_peak_configuration(self.peak_fitting_config)
             control_panel.export_batch_btn.setEnabled(True)
+            control_panel.export_results_csv_btn.setEnabled(True)
 
         message = "Map peak fitting completed."
         if failed_fit_count:
@@ -10971,3 +10974,127 @@ The map is now ready for analysis!"""
             )
             return
         QMessageBox.information(self, "Success", f"Results exported to {file_path}")
+
+    def export_map_peak_fitting_results_csv(self):
+        """Export per-pixel peak fitting results to a single CSV."""
+        if self.peak_fitting_results is None:
+            QMessageBox.warning(self, "No Results", "No peak fitting results to export.")
+            return
+        if self.map_data is None or not getattr(self.map_data, 'spectra', None):
+            QMessageBox.warning(self, "No Map Data", "No map data is available for export.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export Results CSV", "", "CSV Files (*.csv)"
+        )
+        if not file_path:
+            return
+
+        if not str(file_path).lower().endswith('.csv'):
+            file_path = f"{file_path}.csv"
+
+        try:
+            self._write_peak_fitting_results_csv(file_path)
+        except (OSError, PermissionError, UnicodeEncodeError) as e:
+            logger.error("Failed to export peak fitting results CSV to %s: %s", file_path, e)
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                f"Could not write to file:\n{file_path}\n\n{e}"
+            )
+            return
+        except Exception as e:
+            logger.exception("Unexpected error exporting peak fitting results CSV")
+            QMessageBox.critical(self, "Export Failed", f"Unexpected error:\n{e}")
+            return
+
+        QMessageBox.information(self, "Success", f"Results exported to {file_path}")
+
+    def _write_peak_fitting_results_csv(self, file_path: str):
+        import csv
+
+        results = self.peak_fitting_results
+        config = results.get('config', self.peak_fitting_config) or {}
+        shapes = list(results.get('peak_shapes') or config.get('shapes') or [])
+        num_peaks = int(results.get('n_peaks') or config.get('num_peaks') or len(shapes) or 0)
+        if len(shapes) < num_peaks:
+            shapes.extend([None] * (num_peaks - len(shapes)))
+
+        map_params = results.get('map_parameters', {})
+        r_squared = results.get('r_squared', {})
+        fit_errors = results.get('fit_errors', {})
+        fit_warnings = results.get('fit_warnings', {})
+        result_param_names = set(results.get('param_names', []))
+
+        headers = ['X_um', 'Y_um']
+        peak_lookups = []
+        for peak_idx in range(1, num_peaks + 1):
+            peak_param_names = [f'P{peak_idx}_Amp', f'P{peak_idx}_Cen', f'P{peak_idx}_Wid']
+            eta_key = f'P{peak_idx}_Eta'
+            has_eta = eta_key in map_params or eta_key in result_param_names
+            if has_eta:
+                peak_param_names.append(eta_key)
+            headers.extend(peak_param_names)
+            headers.append(f'P{peak_idx}_IntInt')
+            peak_lookups.append({
+                'amp': map_params.get(f'P{peak_idx}_Amp', {}),
+                'center': map_params.get(f'P{peak_idx}_Cen', {}),
+                'width': map_params.get(f'P{peak_idx}_Wid', {}),
+                'eta': map_params.get(eta_key, {}),
+                'has_eta': has_eta,
+                'shape': shapes[peak_idx - 1] if peak_idx - 1 < len(shapes) else None,
+            })
+        headers.extend(['Total_IntInt', 'R2', 'status', 'Fit Error', 'Fit Warning'])
+
+        with open(file_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+
+            sorted_spectra = sorted(
+                self.map_data.spectra.values(),
+                key=lambda spectrum: (spectrum.y_pos, spectrum.x_pos),
+            )
+            for spectrum in sorted_spectra:
+                pos_key = (spectrum.x_pos, spectrum.y_pos)
+                failed = bool(fit_errors.get(pos_key))
+
+                row = [spectrum.x_pos, spectrum.y_pos]
+                total_intensity = 0.0
+                all_integrals_valid = not failed
+
+                for peak_lookup in peak_lookups:
+                    amp = peak_lookup['amp'].get(pos_key, np.nan)
+                    center = peak_lookup['center'].get(pos_key, np.nan)
+                    width = peak_lookup['width'].get(pos_key, np.nan)
+                    row.extend([amp, center, width])
+
+                    if peak_lookup['has_eta']:
+                        eta = peak_lookup['eta'].get(pos_key, np.nan)
+                        row.append(eta)
+                    else:
+                        eta = 0.5
+
+                    shape = peak_lookup['shape']
+                    if failed or shape is None or not (np.isfinite(amp) and np.isfinite(width)):
+                        integrated_intensity = np.nan
+                        all_integrals_valid = False
+                    else:
+                        eta_for_area = eta if np.isfinite(eta) else 0.5
+                        integrated_intensity = compute_integrated_intensity(amp, width, shape, eta_for_area)
+                        if np.isfinite(integrated_intensity):
+                            total_intensity += integrated_intensity
+                        else:
+                            all_integrals_valid = False
+                    row.append(integrated_intensity)
+
+                r2_val = r_squared.get(pos_key, np.nan)
+                status = 'failed' if failed else 'success'
+                total_value = total_intensity if all_integrals_valid else np.nan
+                row.extend([
+                    total_value,
+                    r2_val,
+                    status,
+                    fit_errors.get(pos_key, ""),
+                    fit_warnings.get(pos_key, ""),
+                ])
+                writer.writerow(row)
