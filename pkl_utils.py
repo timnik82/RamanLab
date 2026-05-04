@@ -8,10 +8,63 @@ import os
 import sys
 import pickle
 import logging
+import pathlib
 from pathlib import Path
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+class CrossPlatformUnpickler(pickle.Unpickler):
+    """Unpickler that can load concrete pathlib paths from other operating systems."""
+
+    def find_class(self, module, name):
+        if module == "pathlib":
+            if name == "WindowsPath" and os.name != "nt":
+                logger.info("PKL Compatibility: Loading pathlib.WindowsPath as PureWindowsPath")
+                return pathlib.PureWindowsPath
+            if name == "PosixPath" and os.name == "nt":
+                logger.info("PKL Compatibility: Loading pathlib.PosixPath as PurePosixPath")
+                return pathlib.PurePosixPath
+
+        if module.startswith("map_analysis_2d_qt6"):
+            new_module = module.replace("map_analysis_2d_qt6", "map_analysis_2d")
+            logger.info("PKL Compatibility: Redirecting %s.%s -> %s.%s", module, name, new_module, name)
+            try:
+                mod = __import__(new_module, fromlist=[name])
+                return getattr(mod, name)
+            except (ImportError, AttributeError) as e:
+                logger.warning("Module compatibility: %s.%s -> %s.%s failed: %s", module, name, new_module, name, e)
+
+        if module in ["raman_analysis_qt6", "raman_map_analysis_qt6"]:
+            logger.info("PKL Compatibility: Redirecting legacy module %s.%s", module, name)
+            try:
+                if name == "RamanMapData":
+                    from map_analysis_2d.core.file_io import RamanMapData
+                    return RamanMapData
+                if name in ["CosmicRayConfig", "SimpleCosmicRayManager"]:
+                    from map_analysis_2d.core.cosmic_ray_detection import CosmicRayConfig, SimpleCosmicRayManager
+                    return CosmicRayConfig if name == "CosmicRayConfig" else SimpleCosmicRayManager
+                if name == "SpectrumData":
+                    from map_analysis_2d.core.spectrum_data import SpectrumData
+                    return SpectrumData
+            except ImportError as e:
+                logger.warning("Could not find %s in new module structure: %s", name, e)
+
+        if module == "raman_map_data" and name == "RamanMapData":
+            from map_analysis_2d.core.file_io import RamanMapData
+            return RamanMapData
+
+        if module == "cosmic_ray_detection" and name in ["CosmicRayConfig", "SimpleCosmicRayManager"]:
+            from map_analysis_2d.core.cosmic_ray_detection import CosmicRayConfig, SimpleCosmicRayManager
+            return CosmicRayConfig if name == "CosmicRayConfig" else SimpleCosmicRayManager
+
+        return super().find_class(module, name)
+
+
+def cross_platform_pickle_load(file_obj):
+    """Load pickle data while tolerating OS-specific pathlib objects."""
+    return CrossPlatformUnpickler(file_obj).load()
 
 def ensure_module_path():
     """
@@ -118,6 +171,9 @@ def get_example_data_paths():
 def safe_pickle_load(file_path, ensure_path=True):
     """
     Safely load a pickle file with proper module path resolution.
+
+    Only load PKL files from trusted sources. Pickle deserialization can execute
+    code embedded in the file; this helper provides compatibility, not sandboxing.
     
     Args:
         file_path (str or Path): Path to the pickle file
@@ -142,7 +198,7 @@ def safe_pickle_load(file_path, ensure_path=True):
     
     try:
         with open(file_path, 'rb') as f:
-            data = pickle.load(f)
+            data = cross_platform_pickle_load(f)
         logger.info(f"Successfully loaded PKL file: {file_path}")
         return data
         

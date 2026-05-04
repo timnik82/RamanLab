@@ -243,9 +243,9 @@ class MapAnalysisMainWindow(QMainWindow):
 
     def auto_load_database(self):
         """Automatically load database matching pattern RamanLab_Database_*.pkl"""
-        import pickle
         import glob
         from pathlib import Path
+        from pkl_utils import safe_pickle_load
         
         # Search in common locations
         search_paths = [
@@ -273,8 +273,7 @@ class MapAnalysisMainWindow(QMainWindow):
             try:
                 logger.info(f"Auto-loading database from: {database_file}")
                 
-                with open(database_file, 'rb') as f:
-                    full_database = pickle.load(f)
+                full_database = safe_pickle_load(database_file)
                 
                 # Filter for plastics only
                 self.database = {}
@@ -331,7 +330,7 @@ class MapAnalysisMainWindow(QMainWindow):
     
     def load_database_file(self):
         """Load Raman database from pickle file and filter for plastics only."""
-        import pickle
+        from pkl_utils import safe_pickle_load
         
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Load Raman Database", "",
@@ -340,8 +339,7 @@ class MapAnalysisMainWindow(QMainWindow):
         
         if file_path:
             try:
-                with open(file_path, 'rb') as f:
-                    full_database = pickle.load(f)
+                full_database = safe_pickle_load(file_path)
                 
                 # Filter for plastics only
                 self.database = {}
@@ -6749,73 +6747,9 @@ All spectra have been processed and cleaned data is now available for analysis."
         try:
             self.progress_status.show_progress("Loading map data from PKL...")
             
-            # Load from pickle file with module compatibility handling
-            import pickle
-            import sys
-            import types
+            from pkl_utils import safe_pickle_load
             
-            # Create module compatibility mapping
-            class ModuleCompatibilityUnpickler(pickle.Unpickler):
-                def find_class(self, module, name):
-                    # Handle old module names that have been renamed
-                    if module.startswith('map_analysis_2d_qt6'):
-                        # Replace old module name with new one
-                        new_module = module.replace('map_analysis_2d_qt6', 'map_analysis_2d')
-                        logger.info(f"PKL Compatibility: Redirecting {module}.{name} -> {new_module}.{name}")
-                        try:
-                            # Try to import the new module
-                            mod = __import__(new_module, fromlist=[name])
-                            result = getattr(mod, name)
-                            logger.info(f"PKL Compatibility: Successfully found {name} in {new_module}")
-                            return result
-                        except (ImportError, AttributeError) as e:
-                            # If new module doesn't have the class, try to find it elsewhere
-                            logger.warning(f"Module compatibility: {module}.{name} -> {new_module}.{name} failed: {e}")
-                            pass
-                    
-                    # Handle other legacy module names
-                    elif module in ['raman_analysis_qt6', 'raman_map_analysis_qt6']:
-                        logger.info(f"PKL Compatibility: Redirecting legacy module {module}.{name}")
-                        # Try to find the class in the new module structure
-                        try:
-                            if name == 'RamanMapData':
-                                from map_analysis_2d.core.file_io import RamanMapData
-                                logger.info(f"PKL Compatibility: Found {name} in file_io module")
-                                return RamanMapData
-                            elif name in ['CosmicRayConfig', 'SimpleCosmicRayManager']:
-                                from map_analysis_2d.core.cosmic_ray_detection import CosmicRayConfig, SimpleCosmicRayManager
-                                result = CosmicRayConfig if name == 'CosmicRayConfig' else SimpleCosmicRayManager
-                                logger.info(f"PKL Compatibility: Found {name} in cosmic_ray_detection module")
-                                return result
-                            elif name == 'SpectrumData':
-                                from map_analysis_2d.core.spectrum_data import SpectrumData
-                                logger.info(f"PKL Compatibility: Found {name} in spectrum_data module")
-                                return SpectrumData
-                        except ImportError as e:
-                            logger.warning(f"Could not find {name} in new module structure: {e}")
-                            pass
-                    
-                    # Handle other known compatibility issues
-                    elif module == 'raman_map_data' and name == 'RamanMapData':
-                        logger.info(f"PKL Compatibility: Redirecting {module}.{name} to file_io module")
-                        # Import from the correct location
-                        from map_analysis_2d.core.file_io import RamanMapData
-                        return RamanMapData
-                    elif module == 'cosmic_ray_detection' and name in ['CosmicRayConfig', 'SimpleCosmicRayManager']:
-                        logger.info(f"PKL Compatibility: Redirecting {module}.{name} to cosmic_ray_detection module")
-                        # Import from the correct location
-                        from map_analysis_2d.core.cosmic_ray_detection import CosmicRayConfig, SimpleCosmicRayManager
-                        if name == 'CosmicRayConfig':
-                            return CosmicRayConfig
-                        else:
-                            return SimpleCosmicRayManager
-                    
-                    # Fall back to default behavior
-                    return super().find_class(module, name)
-            
-            with open(file_path, 'rb') as f:
-                unpickler = ModuleCompatibilityUnpickler(f)
-                save_data = unpickler.load()
+            save_data = safe_pickle_load(file_path)
             
             # Extract data based on file format
             if isinstance(save_data, dict):
@@ -6894,6 +6828,7 @@ All spectra have been processed and cleaned data is now available for analysis."
             self._initialize_integration_slider()
 
             # Update the display
+            self._clear_map_cache()
             self.update_map()
 
             try:
@@ -7409,23 +7344,9 @@ The map is now ready for analysis!"""
         try:
             self.progress_status.show_progress("Loading PKL file...")
             
-            import pickle
+            from pkl_utils import safe_pickle_load
             
-            # Use the same compatibility unpickler as load_map_from_pkl
-            class ModuleCompatibilityUnpickler(pickle.Unpickler):
-                def find_class(self, module, name):
-                    if module.startswith('map_analysis_2d_qt6'):
-                        new_module = module.replace('map_analysis_2d_qt6', 'map_analysis_2d')
-                        try:
-                            mod = __import__(new_module, fromlist=[name])
-                            return getattr(mod, name)
-                        except (ImportError, AttributeError):
-                            pass
-                    return super().find_class(module, name)
-            
-            with open(file_path, 'rb') as f:
-                unpickler = ModuleCompatibilityUnpickler(f)
-                save_data = unpickler.load()
+            save_data = safe_pickle_load(file_path)
             
             # Extract map data
             if isinstance(save_data, dict) and 'map_data' in save_data:
@@ -7433,6 +7354,7 @@ The map is now ready for analysis!"""
                 self._reset_peak_fitting_state(clear_config=True)
                 if 'cosmic_ray_config' in save_data:
                     self.cosmic_ray_config = save_data['cosmic_ray_config']
+                    self.cosmic_ray_manager = SimpleCosmicRayManager(self.cosmic_ray_config)
             else:
                 self.map_data = save_data
                 self._reset_peak_fitting_state(clear_config=True)
