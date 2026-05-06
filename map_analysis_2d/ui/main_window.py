@@ -8,6 +8,7 @@ and connects them to the core functionality.
 import logging
 import re
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -219,7 +220,11 @@ class MapAnalysisMainWindow(QMainWindow):
             if not path or not Path(path).exists():
                 return
             self.progress_status.show_progress("Restoring last map...")
-            if kind == 'single_file':
+            if self._should_restore_map_from_pickle(path, kind):
+                self._load_map_data_from_pickle(path)
+                if kind != 'pkl':
+                    cfg.set('map_analysis.last_map_type', 'pkl')
+            elif kind == 'single_file':
                 from ..core.single_file_map_loader import SingleFileRamanMapData
                 self.map_data = SingleFileRamanMapData(
                     filepath=path, cosmic_ray_config=self.cosmic_ray_config
@@ -240,6 +245,85 @@ class MapAnalysisMainWindow(QMainWindow):
         except Exception as e:
             self.progress_status.hide_progress()
             logger.warning("Could not restore last map: %s", e)
+
+    def _should_restore_map_from_pickle(self, path, kind):
+        """Return True when a saved map path should be restored via pickle loading."""
+        path_obj = Path(path)
+        return kind == 'pkl' or path_obj.suffix.lower() in {'.pkl', '.pickle'}
+
+    def _load_map_data_from_pickle(self, file_path):
+        """Load map data from a saved pickle file, including legacy formats."""
+        from pkl_utils import safe_pickle_load
+
+        save_data = safe_pickle_load(file_path)
+
+        if isinstance(save_data, dict):
+            self.map_data = save_data['map_data']
+            self._reset_peak_fitting_state(clear_config=True)
+
+            if 'cosmic_ray_config' in save_data:
+                self.cosmic_ray_config = save_data['cosmic_ray_config']
+                self.cosmic_ray_manager = SimpleCosmicRayManager(self.cosmic_ray_config)
+
+            metadata = save_data.get('metadata', {})
+            creation_time = metadata.get('creation_time', 'Unknown')
+            version = metadata.get('version', 'Unknown')
+        else:
+            self.map_data = save_data
+            self._reset_peak_fitting_state(clear_config=True)
+            metadata = {}
+            creation_time = 'Unknown (Legacy Format)'
+            version = 'Legacy'
+
+        reversed_count = 0
+
+        if hasattr(self.map_data, 'target_wavenumbers') and self.map_data.target_wavenumbers is not None:
+            wn = self.map_data.target_wavenumbers
+            print(f"[PKL LOAD] target_wavenumbers: {wn[0]:.1f} → {wn[-1]:.1f}")
+            if len(wn) > 1 and wn[0] > wn[-1]:
+                print(f"[PKL LOAD]   Reversing target_wavenumbers to ascending order")
+                self.map_data.target_wavenumbers = wn[::-1]
+                reversed_count += 1
+
+        if hasattr(self.map_data, 'wavenumbers') and self.map_data.wavenumbers is not None:
+            wn = self.map_data.wavenumbers
+            print(f"[PKL LOAD] wavenumbers attribute: {wn[0]:.1f} → {wn[-1]:.1f}")
+            if len(wn) > 1 and wn[0] > wn[-1]:
+                print(f"[PKL LOAD]   Reversing wavenumbers attribute to ascending order")
+                self.map_data.wavenumbers = wn[::-1]
+                reversed_count += 1
+
+        if hasattr(self.map_data, 'spectra') and self.map_data.spectra:
+            spectra_reversed = 0
+            first_spectrum = next(iter(self.map_data.spectra.values()))
+            if hasattr(first_spectrum, 'wavenumbers') and first_spectrum.wavenumbers is not None:
+                print(f"[PKL LOAD] first spectrum wavenumbers: {first_spectrum.wavenumbers[0]:.1f} → {first_spectrum.wavenumbers[-1]:.1f}")
+
+            for spectrum in self.map_data.spectra.values():
+                if hasattr(spectrum, 'wavenumbers') and spectrum.wavenumbers is not None:
+                    if len(spectrum.wavenumbers) > 1 and spectrum.wavenumbers[0] > spectrum.wavenumbers[-1]:
+                        spectrum.wavenumbers = spectrum.wavenumbers[::-1]
+                        if hasattr(spectrum, 'intensities') and spectrum.intensities is not None:
+                            spectrum.intensities = spectrum.intensities[::-1]
+                        if hasattr(spectrum, 'processed_intensities') and spectrum.processed_intensities is not None:
+                            spectrum.processed_intensities = spectrum.processed_intensities[::-1]
+                        spectra_reversed += 1
+
+            if spectra_reversed > 0:
+                print(f"[PKL LOAD]   Reversed wavenumbers in {spectra_reversed} individual spectra")
+                reversed_count += 1
+
+        if reversed_count > 0:
+            print(f"[PKL LOAD] ✓ Wavenumber reversal complete: {reversed_count} array type(s) corrected")
+        else:
+            print(f"[PKL LOAD] ✓ Wavenumbers already in correct order")
+
+        return {
+            'save_data': save_data,
+            'metadata': metadata,
+            'creation_time': creation_time,
+            'version': version,
+        }
 
     def auto_load_database(self):
         """Automatically load database matching pattern RamanLab_Database_*.pkl"""
@@ -6748,81 +6832,10 @@ All spectra have been processed and cleaned data is now available for analysis."
             
         try:
             self.progress_status.show_progress("Loading map data from PKL...")
-            
-            from pkl_utils import safe_pickle_load
-            
-            save_data = safe_pickle_load(file_path)
-            
-            # Extract data based on file format
-            if isinstance(save_data, dict):
-                # New format with metadata
-                self.map_data = save_data['map_data']
-                self._reset_peak_fitting_state(clear_config=True)
-                
-                # Restore cosmic ray config if available
-                if 'cosmic_ray_config' in save_data:
-                    self.cosmic_ray_config = save_data['cosmic_ray_config']
-                    self.cosmic_ray_manager = SimpleCosmicRayManager(self.cosmic_ray_config)
-                
-                # Get metadata
-                metadata = save_data.get('metadata', {})
-                creation_time = metadata.get('creation_time', 'Unknown')
-                version = metadata.get('version', 'Unknown')
-                
-            else:
-                # Legacy format (direct RamanMapData object)
-                self.map_data = save_data
-                self._reset_peak_fitting_state(clear_config=True)
-                creation_time = 'Unknown (Legacy Format)'
-                version = 'Legacy'
-                metadata = {}
-            
-            # Check if wavenumbers are in descending order and fix if needed
-            reversed_count = 0
-            
-            # Check and reverse target_wavenumbers
-            if hasattr(self.map_data, 'target_wavenumbers') and self.map_data.target_wavenumbers is not None:
-                wn = self.map_data.target_wavenumbers
-                print(f"[PKL LOAD] target_wavenumbers: {wn[0]:.1f} → {wn[-1]:.1f}")
-                if len(wn) > 1 and wn[0] > wn[-1]:
-                    print(f"[PKL LOAD]   Reversing target_wavenumbers to ascending order")
-                    self.map_data.target_wavenumbers = wn[::-1]
-                    reversed_count += 1
-            
-            # Check and reverse wavenumbers attribute (for SimpleMapData from H5 import)
-            if hasattr(self.map_data, 'wavenumbers') and self.map_data.wavenumbers is not None:
-                wn = self.map_data.wavenumbers
-                print(f"[PKL LOAD] wavenumbers attribute: {wn[0]:.1f} → {wn[-1]:.1f}")
-                if len(wn) > 1 and wn[0] > wn[-1]:
-                    print(f"[PKL LOAD]   Reversing wavenumbers attribute to ascending order")
-                    self.map_data.wavenumbers = wn[::-1]
-                    reversed_count += 1
-            
-            # Reverse wavenumbers in all individual spectra
-            if hasattr(self.map_data, 'spectra') and self.map_data.spectra:
-                spectra_reversed = 0
-                first_spectrum = next(iter(self.map_data.spectra.values()))
-                if hasattr(first_spectrum, 'wavenumbers') and first_spectrum.wavenumbers is not None:
-                    print(f"[PKL LOAD] first spectrum wavenumbers: {first_spectrum.wavenumbers[0]:.1f} → {first_spectrum.wavenumbers[-1]:.1f}")
-                
-                for spectrum in self.map_data.spectra.values():
-                    if hasattr(spectrum, 'wavenumbers') and spectrum.wavenumbers is not None:
-                        if len(spectrum.wavenumbers) > 1 and spectrum.wavenumbers[0] > spectrum.wavenumbers[-1]:
-                            spectrum.wavenumbers = spectrum.wavenumbers[::-1]
-                            if hasattr(spectrum, 'intensities') and spectrum.intensities is not None:
-                                spectrum.intensities = spectrum.intensities[::-1]
-                            if hasattr(spectrum, 'processed_intensities') and spectrum.processed_intensities is not None:
-                                spectrum.processed_intensities = spectrum.processed_intensities[::-1]
-                            spectra_reversed += 1
-                
-                if spectra_reversed > 0:
-                    print(f"[PKL LOAD]   Reversed wavenumbers in {spectra_reversed} individual spectra")
-                    reversed_count += 1
-            
-            if reversed_count > 0:
-                print(f"[PKL LOAD] ✓ Wavenumber reversal complete: {reversed_count} array type(s) corrected")
-            else:
-                print(f"[PKL LOAD] ✓ Wavenumbers already in correct order")
+            load_result = self._load_map_data_from_pickle(file_path)
+            save_data = load_result['save_data']
+            creation_time = load_result['creation_time']
+            version = load_result['version']
             
             self.progress_status.hide_progress()
 
@@ -6837,7 +6850,7 @@ All spectra have been processed and cleaned data is now available for analysis."
                 from core.config_manager import ConfigManager
                 _cfg = ConfigManager()
                 _cfg.set('map_analysis.last_map_path', file_path)
-                _cfg.set('map_analysis.last_map_type', 'single_file')
+                _cfg.set('map_analysis.last_map_type', 'pkl')
             except Exception as cfg_err:
                 logger.warning("Could not persist last map path: %s", cfg_err)
 
