@@ -70,7 +70,7 @@ class ParameterGroupBox(QGroupBox, SafeWidgetMixin):
         self.row_count = 0
         
     def add_double_spinbox(self, label: str, min_val: float, max_val: float,
-                          value: float, step: float = 1.0, width: int = 120) -> QDoubleSpinBox:
+                          value: float, step: float = 1.0) -> QDoubleSpinBox:
         """Add a double spinbox parameter."""
         label_widget = QLabel(f"{label}:")
         label_widget.setMaximumWidth(90)
@@ -90,7 +90,7 @@ class ParameterGroupBox(QGroupBox, SafeWidgetMixin):
         return spinbox
 
     def add_spinbox(self, label: str, min_val: int, max_val: int,
-                   value: int, width: int = 120) -> QSpinBox:
+                   value: int) -> QSpinBox:
         """Add an integer spinbox parameter."""
         label_widget = QLabel(f"{label}:")
         label_widget.setMaximumWidth(90)
@@ -119,7 +119,7 @@ class ParameterGroupBox(QGroupBox, SafeWidgetMixin):
         
         return checkbox
     
-    def add_combobox(self, label: str, items: list, current_index: int = 0, width: int = 120) -> QComboBox:
+    def add_combobox(self, label: str, items: list, current_index: int = 0) -> QComboBox:
         """Add a combobox parameter."""
         label_widget = QLabel(f"{label}:")
         label_widget.setMaximumWidth(90)

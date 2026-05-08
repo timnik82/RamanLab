@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QPushButton, 
     QLabel, QCheckBox, QComboBox, QLineEdit, QListWidget, QTabWidget,
     QTextEdit, QSlider, QDoubleSpinBox, QSizePolicy, QFrame,
-    QSpinBox, QScrollArea, QFormLayout, QGridLayout
+    QSpinBox, QFormLayout, QGridLayout
 )
 from PySide6.QtCore import Signal, Qt, QTimer
 
@@ -1685,6 +1685,8 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self._update_visualization_combo()
         
     def _on_shape_changed(self, text, idx):
+        if idx >= len(self.eta_labels):
+            return
         is_pv = text == "Pseudo-Voigt"
         self.eta_labels[idx].setVisible(is_pv)
         for spin in self.eta_spins[idx].values():
