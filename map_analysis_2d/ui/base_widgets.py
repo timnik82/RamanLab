@@ -68,72 +68,51 @@ class ParameterGroupBox(QGroupBox, SafeWidgetMixin):
         self.layout.setColumnStretch(0, 0)  # Don't stretch label column
         self.layout.setColumnStretch(1, 1)  # Stretch control column
         self.row_count = 0
-        
+
+    def _make_label(self, text: str) -> QLabel:
+        w = QLabel(f"{text}:")
+        w.setMaximumWidth(90)
+        w.setWordWrap(True)
+        return w
+
+    def _add_row(self, label: str, control: QWidget, min_height: int = 0) -> None:
+        control.setMinimumWidth(60)
+        if min_height:
+            control.setMinimumHeight(min_height)
+        control.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.layout.addWidget(self._make_label(label), self.row_count, 0, Qt.AlignmentFlag.AlignTop)
+        self.layout.addWidget(control, self.row_count, 1)
+        self.row_count += 1
+
     def add_double_spinbox(self, label: str, min_val: float, max_val: float,
                           value: float, step: float = 1.0) -> QDoubleSpinBox:
-        """Add a double spinbox parameter."""
-        label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)
-        label_widget.setWordWrap(True)
         spinbox = QDoubleSpinBox()
         spinbox.setRange(min_val, max_val)
         spinbox.setValue(value)
         spinbox.setSingleStep(step)
-        spinbox.setMinimumWidth(60)
-        spinbox.setMinimumHeight(30)
-        spinbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(spinbox, self.row_count, 1)
-        self.row_count += 1
-
+        self._add_row(label, spinbox, min_height=30)
         return spinbox
 
     def add_spinbox(self, label: str, min_val: int, max_val: int,
                    value: int) -> QSpinBox:
-        """Add an integer spinbox parameter."""
-        label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)
-        label_widget.setWordWrap(True)
         spinbox = QSpinBox()
         spinbox.setRange(min_val, max_val)
         spinbox.setValue(value)
-        spinbox.setMinimumWidth(60)
-        spinbox.setMinimumHeight(30)
-        spinbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(spinbox, self.row_count, 1)
-        self.row_count += 1
-
+        self._add_row(label, spinbox, min_height=30)
         return spinbox
-    
+
     def add_checkbox(self, label: str, checked: bool = False) -> QCheckBox:
-        """Add a checkbox parameter."""
         checkbox = QCheckBox(label)
         checkbox.setChecked(checked)
-        # Note: QCheckBox doesn't have setWordWrap, text wrapping is handled automatically
-        
         self.layout.addWidget(checkbox, self.row_count, 0, 1, 2)
         self.row_count += 1
-        
         return checkbox
-    
+
     def add_combobox(self, label: str, items: list, current_index: int = 0) -> QComboBox:
-        """Add a combobox parameter."""
-        label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)
-        label_widget.setWordWrap(True)
         combobox = QComboBox()
         combobox.addItems(items)
         combobox.setCurrentIndex(current_index)
-        combobox.setMinimumWidth(60)
-        combobox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(combobox, self.row_count, 1)
-        self.row_count += 1
-
+        self._add_row(label, combobox)
         return combobox
 
 
