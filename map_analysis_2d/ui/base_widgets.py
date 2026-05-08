@@ -185,7 +185,7 @@ class ScrollableControlPanel(QScrollArea, SafeWidgetMixin):
         
         # Configure scroll area
         self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         # Allow resizing by setting maximum and minimum widths more flexibly
         self.setMaximumWidth(max_width)
