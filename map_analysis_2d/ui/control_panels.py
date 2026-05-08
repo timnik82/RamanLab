@@ -1784,6 +1784,11 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             for spin in (self.min_wavenumber_spin, self.max_wavenumber_spin, self.num_peaks_spin):
                 spin.blockSignals(False)
 
+        # Signals were blocked while setting num_peaks, so the UI didn't rebuild
+        # automatically. Rebuild now so shape_combos / amp_spins etc. match shapes.
+        if len(self.shape_combos) != len(shapes):
+            self._rebuild_peaks_ui()
+
         param_index = 0
         initial_params = config.get("initial_params", [])
         lower_bounds, upper_bounds = config.get("bounds", ([], []))
