@@ -1784,10 +1784,10 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             for spin in (self.min_wavenumber_spin, self.max_wavenumber_spin, self.num_peaks_spin):
                 spin.blockSignals(False)
 
-        param_index = 0
+        # Validate before rebuilding: a rebuild resets all peaks to defaults, so
+        # bailing out after that would leave the panel in a partially-restored state.
         initial_params = config.get("initial_params", [])
         lower_bounds, upper_bounds = config.get("bounds", ([], []))
-
         expected_param_count = sum(4 if shape == "Pseudo-Voigt" else 3 for shape in shapes)
         if len(initial_params) < expected_param_count:
             logger.warning("Skipping peak fitting config restore: initial parameters are incomplete")
@@ -1795,6 +1795,13 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         if len(lower_bounds) < expected_param_count or len(upper_bounds) < expected_param_count:
             logger.warning("Skipping peak fitting config restore: parameter bounds are incomplete")
             return
+
+        # Signals were blocked while setting num_peaks, so the UI didn't rebuild
+        # automatically. Rebuild now so shape_combos / amp_spins etc. match shapes.
+        if len(self.shape_combos) != len(shapes):
+            self._rebuild_peaks_ui()
+
+        param_index = 0
 
         for peak_index, shape in enumerate(shapes):
             self.shape_combos[peak_index].setCurrentText(shape)
