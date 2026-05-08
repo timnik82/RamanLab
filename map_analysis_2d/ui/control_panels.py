@@ -1488,11 +1488,13 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.min_wavenumber_spin.setRange(0, 4000)
         self.min_wavenumber_spin.setValue(400)
         self.min_wavenumber_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.min_wavenumber_spin.setMinimumWidth(50)
 
         self.max_wavenumber_spin = QDoubleSpinBox()
         self.max_wavenumber_spin.setRange(0, 4000)
         self.max_wavenumber_spin.setValue(600)
         self.max_wavenumber_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.max_wavenumber_spin.setMinimumWidth(50)
         
         self.min_wavenumber_spin.valueChanged.connect(self.fitting_config_changed.emit)
         self.max_wavenumber_spin.valueChanged.connect(self.fitting_config_changed.emit)
@@ -1513,6 +1515,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.num_peaks_spin.setRange(1, 5)
         self.num_peaks_spin.setValue(1)
         self.num_peaks_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.num_peaks_spin.setMinimumWidth(50)
         self.num_peaks_spin.valueChanged.connect(self._rebuild_peaks_ui)
         self.num_peaks_spin.valueChanged.connect(self.fitting_config_changed.emit)
         num_peaks_layout.addWidget(self.num_peaks_spin)
@@ -1531,6 +1534,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         viz_layout = QVBoxLayout(viz_group)
         
         self.visualization_combo = QComboBox()
+        self.visualization_combo.setMinimumWidth(60)
         self.visualization_combo.currentTextChanged.connect(
             lambda text: self.visualization_parameter_changed.emit(text)
         )
@@ -1544,20 +1548,24 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         
         self.test_fit_btn = StandardButton("Test Fit Current Pixel")
         self.test_fit_btn.setToolTip("Click a pixel on the map, then click this to test your initial parameters.")
+        self.test_fit_btn.setMinimumWidth(0)
         self.test_fit_btn.clicked.connect(self.test_fit_requested.emit)
         actions_layout.addWidget(self.test_fit_btn)
-        
+
         self.run_fit_btn = PrimaryButton("Run Map Fitting")
+        self.run_fit_btn.setMinimumWidth(0)
         self.run_fit_btn.clicked.connect(self.run_map_fitting_requested.emit)
         actions_layout.addWidget(self.run_fit_btn)
-        
+
         self.export_batch_btn = StandardButton("Export to Batch System")
+        self.export_batch_btn.setMinimumWidth(0)
         self.export_batch_btn.setEnabled(False)
         self.export_batch_btn.clicked.connect(self.export_batch_requested.emit)
         actions_layout.addWidget(self.export_batch_btn)
 
         self.export_results_csv_btn = StandardButton("Export Results CSV")
         self.export_results_csv_btn.setToolTip("Export one row per pixel with peak parameters")
+        self.export_results_csv_btn.setMinimumWidth(0)
         self.export_results_csv_btn.setEnabled(False)
         self.export_results_csv_btn.clicked.connect(self.export_results_csv_requested.emit)
         actions_layout.addWidget(self.export_results_csv_btn)
@@ -1600,7 +1608,10 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             spin.setRange(range_min, range_max)
             spin.setValue(default_val)
             spin.setSingleStep(step)
-            spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            # Ignored horizontal policy: lets the param grid columns shrink to
+            # whatever the splitter allows without inflating the panel's minimum.
+            spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            spin.setMinimumWidth(40)
             grid_layout.addWidget(spin, row_idx, col_idx)
 
             if col_idx == 1:
@@ -1637,6 +1648,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             shape_combo = QComboBox()
             shape_combo.addItems(["Lorentzian", "Gaussian", "Pseudo-Voigt"])
             shape_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            shape_combo.setMinimumWidth(60)
             shape_layout.addWidget(QLabel("Shape:"))
             shape_layout.addWidget(shape_combo)
             layout.addLayout(shape_layout)

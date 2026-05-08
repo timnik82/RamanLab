@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QCheckBox, QSpinBox, QDoubleSpinBox,
     QComboBox, QLineEdit, QScrollArea, QProgressBar, QSizePolicy
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QFont
 
 logger = logging.getLogger(__name__)
@@ -173,6 +173,22 @@ class ButtonGroup(QWidget):
         return buttons
 
 
+class _ContractibleContent(QWidget):
+    """Inner widget for ScrollableControlPanel that lets the splitter shrink it
+    below the layout's natural minimum width.
+
+    QScrollArea with setWidgetResizable(True) refuses to size the inner widget
+    smaller than its minimumSizeHint, which by default is the layout's minimum
+    size — so the panel scrolls horizontally instead of contracting. By clamping
+    the hint's width to 0 we let the splitter narrow the panel; children with
+    Expanding size policies are then squeezed by the layout to fit.
+    """
+
+    def minimumSizeHint(self) -> QSize:
+        sh = super().minimumSizeHint()
+        return QSize(0, sh.height())
+
+
 class ScrollableControlPanel(QScrollArea, SafeWidgetMixin):
     """
     Scrollable control panel that can dynamically update its content.
@@ -185,16 +201,17 @@ class ScrollableControlPanel(QScrollArea, SafeWidgetMixin):
         
         # Configure scroll area
         self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # Content should contract with the splitter, not introduce a horizontal scrollbar.
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         # Allow resizing by setting maximum and minimum widths more flexibly
         self.setMaximumWidth(max_width)
-        self.setMinimumWidth(200)  # Reasonable minimum width
+        self.setMinimumWidth(180)
         # Set preferred width but allow resizing
         self.resize(280, self.height())
-        
+
         # Create main widget and layout
-        self.main_widget = QWidget()
+        self.main_widget = _ContractibleContent()
         self.main_layout = QVBoxLayout(self.main_widget)
         self.main_layout.setSpacing(6)
         self.main_layout.setContentsMargins(4, 4, 4, 4)
