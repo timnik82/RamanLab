@@ -10,9 +10,9 @@ from typing import Optional, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QCheckBox, QSpinBox, QDoubleSpinBox,
-    QComboBox, QLineEdit, QScrollArea, QProgressBar
+    QComboBox, QLineEdit, QScrollArea, QProgressBar, QSizePolicy
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QFont
 
 logger = logging.getLogger(__name__)
@@ -68,72 +68,51 @@ class ParameterGroupBox(QGroupBox, SafeWidgetMixin):
         self.layout.setColumnStretch(0, 0)  # Don't stretch label column
         self.layout.setColumnStretch(1, 1)  # Stretch control column
         self.row_count = 0
-        
-    def add_double_spinbox(self, label: str, min_val: float, max_val: float, 
-                          value: float, step: float = 1.0, width: int = 120) -> QDoubleSpinBox:
-        """Add a double spinbox parameter."""
-        label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)  # Constrain label width
-        label_widget.setWordWrap(True)  # Allow text wrapping
+
+    def _make_label(self, text: str) -> QLabel:
+        w = QLabel(f"{text}:")
+        w.setMaximumWidth(90)
+        w.setWordWrap(True)
+        return w
+
+    def _add_row(self, label: str, control: QWidget, min_height: int = 0) -> None:
+        control.setMinimumWidth(60)
+        if min_height:
+            control.setMinimumHeight(min_height)
+        control.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.layout.addWidget(self._make_label(label), self.row_count, 0, Qt.AlignmentFlag.AlignTop)
+        self.layout.addWidget(control, self.row_count, 1)
+        self.row_count += 1
+
+    def add_double_spinbox(self, label: str, min_val: float, max_val: float,
+                          value: float, step: float = 1.0) -> QDoubleSpinBox:
         spinbox = QDoubleSpinBox()
         spinbox.setRange(min_val, max_val)
         spinbox.setValue(value)
         spinbox.setSingleStep(step)
-        spinbox.setMaximumWidth(width)  # Increased default width
-        spinbox.setMinimumWidth(80)  # Increased minimum width for better usability
-        spinbox.setMinimumHeight(30)  # Add minimum height for better touch targets
-        
-        self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(spinbox, self.row_count, 1, Qt.AlignmentFlag.AlignLeft)
-        self.row_count += 1
-        
+        self._add_row(label, spinbox, min_height=30)
         return spinbox
-    
-    def add_spinbox(self, label: str, min_val: int, max_val: int, 
-                   value: int, width: int = 120) -> QSpinBox:
-        """Add an integer spinbox parameter."""
-        label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)  # Constrain label width
-        label_widget.setWordWrap(True)  # Allow text wrapping
+
+    def add_spinbox(self, label: str, min_val: int, max_val: int,
+                   value: int) -> QSpinBox:
         spinbox = QSpinBox()
         spinbox.setRange(min_val, max_val)
         spinbox.setValue(value)
-        spinbox.setMaximumWidth(width)  # Increased default width
-        spinbox.setMinimumWidth(80)  # Increased minimum width for better usability
-        spinbox.setMinimumHeight(30)  # Add minimum height for better touch targets
-        
-        self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(spinbox, self.row_count, 1, Qt.AlignmentFlag.AlignLeft)
-        self.row_count += 1
-        
+        self._add_row(label, spinbox, min_height=30)
         return spinbox
-    
+
     def add_checkbox(self, label: str, checked: bool = False) -> QCheckBox:
-        """Add a checkbox parameter."""
         checkbox = QCheckBox(label)
         checkbox.setChecked(checked)
-        # Note: QCheckBox doesn't have setWordWrap, text wrapping is handled automatically
-        
         self.layout.addWidget(checkbox, self.row_count, 0, 1, 2)
         self.row_count += 1
-        
         return checkbox
-    
-    def add_combobox(self, label: str, items: list, current_index: int = 0, width: int = 120) -> QComboBox:
-        """Add a combobox parameter."""
-        label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)  # Constrain label width 
-        label_widget.setWordWrap(True)  # Allow text wrapping
+
+    def add_combobox(self, label: str, items: list, current_index: int = 0) -> QComboBox:
         combobox = QComboBox()
         combobox.addItems(items)
         combobox.setCurrentIndex(current_index)
-        combobox.setMaximumWidth(width)  # Control combobox width
-        combobox.setMinimumWidth(80)  # Minimum width for readability
-        
-        self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(combobox, self.row_count, 1, Qt.AlignmentFlag.AlignLeft)
-        self.row_count += 1
-        
+        self._add_row(label, combobox)
         return combobox
 
 
@@ -194,6 +173,22 @@ class ButtonGroup(QWidget):
         return buttons
 
 
+class _ContractibleContent(QWidget):
+    """Inner widget for ScrollableControlPanel that lets the splitter shrink it
+    below the layout's natural minimum width.
+
+    QScrollArea with setWidgetResizable(True) refuses to size the inner widget
+    smaller than its minimumSizeHint, which by default is the layout's minimum
+    size — so the panel scrolls horizontally instead of contracting. By clamping
+    the hint's width to 0 we let the splitter narrow the panel; children with
+    Expanding size policies are then squeezed by the layout to fit.
+    """
+
+    def minimumSizeHint(self) -> QSize:
+        sh = super().minimumSizeHint()
+        return QSize(0, sh.height())
+
+
 class ScrollableControlPanel(QScrollArea, SafeWidgetMixin):
     """
     Scrollable control panel that can dynamically update its content.
@@ -206,16 +201,17 @@ class ScrollableControlPanel(QScrollArea, SafeWidgetMixin):
         
         # Configure scroll area
         self.setWidgetResizable(True)
+        # Content should contract with the splitter, not introduce a horizontal scrollbar.
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         # Allow resizing by setting maximum and minimum widths more flexibly
         self.setMaximumWidth(max_width)
-        self.setMinimumWidth(200)  # Reasonable minimum width
+        self.setMinimumWidth(180)
         # Set preferred width but allow resizing
         self.resize(280, self.height())
-        
+
         # Create main widget and layout
-        self.main_widget = QWidget()
+        self.main_widget = _ContractibleContent()
         self.main_layout = QVBoxLayout(self.main_widget)
         self.main_layout.setSpacing(6)
         self.main_layout.setContentsMargins(4, 4, 4, 4)

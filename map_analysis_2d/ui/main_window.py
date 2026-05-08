@@ -125,7 +125,9 @@ class SimpleMapData:
 
 class MapAnalysisMainWindow(QMainWindow):
     """Main window for 2D Raman map analysis."""
-    
+
+    DEFAULT_CONTROL_PANEL_WIDTH = 420
+
     def __init__(self, parent=None):
         super().__init__(parent)
         
@@ -534,8 +536,8 @@ class MapAnalysisMainWindow(QMainWindow):
         main_layout.addWidget(self.splitter)
         
         # Left panel for controls (remove max_width constraint to allow resizing)
-        self.controls_panel = ScrollableControlPanel(max_width=500)  # Increased max width
-        self.controls_panel.setMinimumWidth(200)  # Set minimum width to prevent too small
+        self.controls_panel = ScrollableControlPanel(max_width=700)
+        self.controls_panel.setMinimumWidth(280)
         self.create_permanent_controls()
         self.splitter.addWidget(self.controls_panel)
         
@@ -543,7 +545,7 @@ class MapAnalysisMainWindow(QMainWindow):
         self.create_visualization_panel(self.splitter)
         
         # Set initial splitter proportions (left panel ~20%, right panel ~80%)
-        self.splitter.setSizes([300, 1200])
+        self.splitter.setSizes([self.DEFAULT_CONTROL_PANEL_WIDTH, 1080])
         
         # Make the splitter handle more responsive
         self.splitter.setOpaqueResize(True)  # Show content while dragging
@@ -1014,7 +1016,7 @@ class MapAnalysisMainWindow(QMainWindow):
         """Reset the splitter panel layout to default proportions."""
         # Reset to default sizes (control panel ~20%, visualization ~80%)
         total_width = self.width()
-        control_width = 300
+        control_width = self.DEFAULT_CONTROL_PANEL_WIDTH
         viz_width = total_width - control_width
         self.splitter.setSizes([control_width, viz_width])
         self.statusBar().showMessage("Panel layout reset to default", 2000)

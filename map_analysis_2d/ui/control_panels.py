@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QPushButton, 
     QLabel, QCheckBox, QComboBox, QLineEdit, QListWidget, QTabWidget,
     QTextEdit, QSlider, QDoubleSpinBox, QSizePolicy, QFrame,
-    QSpinBox, QScrollArea, QFormLayout, QGridLayout
+    QSpinBox, QFormLayout, QGridLayout
 )
 from PySide6.QtCore import Signal, Qt, QTimer
 
@@ -147,7 +147,7 @@ class MapViewControlPanel(BaseControlPanel):
         self.range_width_spin.setValue(100.0)
         self.range_width_spin.setSingleStep(25.0)
         self.range_width_spin.setToolTip("Width of integration range")
-        self.range_width_spin.setMaximumWidth(100)
+        self.range_width_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         width_layout.addWidget(self.range_width_spin)
 
         width_widget = QWidget()
@@ -488,7 +488,7 @@ class DimensionalityReductionControlPanel(BaseControlPanel):
         # PCA Parameters
         pca_params_group = ParameterGroupBox("PCA Parameters")
         self.pca_n_components_spin = pca_params_group.add_spinbox(
-            "Components", 2, 50, 5, width=60)
+            "Components", 2, 50, 5)
         self.pca_n_components_spin.setToolTip("Number of principal components to extract")
         pca_layout.addWidget(pca_params_group)
         
@@ -525,27 +525,27 @@ class DimensionalityReductionControlPanel(BaseControlPanel):
         # NMF Basic Parameters
         nmf_params_group = ParameterGroupBox("NMF Parameters")
         self.nmf_n_components_spin = nmf_params_group.add_spinbox(
-            "Components", 2, 20, 5, width=60)
+            "Components", 2, 20, 5)
         self.nmf_n_components_spin.setToolTip("Number of NMF components to extract")
-        
+
         self.nmf_max_iter_spin = nmf_params_group.add_spinbox(
-            "Max Iterations", 100, 1000, 200, width=60)
+            "Max Iterations", 100, 1000, 200)
         self.nmf_max_iter_spin.setToolTip("Maximum iterations for NMF convergence")
-        
+
         self.nmf_random_state_spin = nmf_params_group.add_spinbox(
-            "Random State", 0, 999, 42, width=60)
+            "Random State", 0, 999, 42)
         self.nmf_random_state_spin.setToolTip("Random seed for reproducible results")
         nmf_layout.addWidget(nmf_params_group)
         
         # NMF Advanced Parameters
         nmf_advanced_group = ParameterGroupBox("Advanced Options")
         self.nmf_batch_size_spin = nmf_advanced_group.add_spinbox(
-            "Batch Size", 500, 10000, 2000, width=80)
+            "Batch Size", 500, 10000, 2000)
         self.nmf_batch_size_spin.setToolTip("Maximum samples for fitting (larger datasets)")
-        
+
         # Solver selection
         self.nmf_solver_combo = nmf_advanced_group.add_combobox(
-            "Solver", ["mu", "cd"], 0, width=100)
+            "Solver", ["mu", "cd"], 0)
         self.nmf_solver_combo.setToolTip("mu: Multiplicative Update (stable), cd: Coordinate Descent (faster)")
         nmf_layout.addWidget(nmf_advanced_group)
         
@@ -1155,20 +1155,15 @@ class MLControlPanel(BaseControlPanel):
         self.clustering_method_combo.addItems([
             "K-Means", "Gaussian Mixture", "DBSCAN", "Hierarchical"
         ])
-        self.clustering_method_combo.setMaximumWidth(150)
+        self.clustering_method_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.clustering_method_combo.setToolTip("Choose clustering algorithm")
         algo_layout.addWidget(self.clustering_method_combo)
         
         # Parameters - condensed
         cluster_params = ParameterGroupBox("Settings")
         self.n_clusters_spin = cluster_params.add_spinbox("Clusters", 2, 20, 3)
-        self.n_clusters_spin.setMaximumWidth(70)
-        
         self.eps_spin = cluster_params.add_double_spinbox("Eps", 0.1, 10.0, 0.5, 0.1)
-        self.eps_spin.setMaximumWidth(70)
-        
         self.min_samples_spin = cluster_params.add_spinbox("Min Samples", 2, 20, 5)
-        self.min_samples_spin.setMaximumWidth(70)
         
         # Training action - condensed
         action_group = QGroupBox("🚀 Run")
@@ -1492,10 +1487,14 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.min_wavenumber_spin = QDoubleSpinBox()
         self.min_wavenumber_spin.setRange(0, 4000)
         self.min_wavenumber_spin.setValue(400)
-        
+        self.min_wavenumber_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.min_wavenumber_spin.setMinimumWidth(50)
+
         self.max_wavenumber_spin = QDoubleSpinBox()
         self.max_wavenumber_spin.setRange(0, 4000)
         self.max_wavenumber_spin.setValue(600)
+        self.max_wavenumber_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.max_wavenumber_spin.setMinimumWidth(50)
         
         self.min_wavenumber_spin.valueChanged.connect(self.fitting_config_changed.emit)
         self.max_wavenumber_spin.valueChanged.connect(self.fitting_config_changed.emit)
@@ -1515,18 +1514,18 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.num_peaks_spin = QSpinBox()
         self.num_peaks_spin.setRange(1, 5)
         self.num_peaks_spin.setValue(1)
+        self.num_peaks_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.num_peaks_spin.setMinimumWidth(50)
         self.num_peaks_spin.valueChanged.connect(self._rebuild_peaks_ui)
         self.num_peaks_spin.valueChanged.connect(self.fitting_config_changed.emit)
         num_peaks_layout.addWidget(self.num_peaks_spin)
         peaks_layout.addLayout(num_peaks_layout)
         
-        # Scroll area for dynamic peak inputs
-        self.peaks_scroll = QScrollArea()
-        self.peaks_scroll.setWidgetResizable(True)
+        # Container for dynamic peak inputs (no scroll — outer panel scrolls)
         self.peaks_scroll_content = QWidget()
         self.peaks_scroll_layout = QVBoxLayout(self.peaks_scroll_content)
-        self.peaks_scroll.setWidget(self.peaks_scroll_content)
-        peaks_layout.addWidget(self.peaks_scroll)
+        self.peaks_scroll_layout.setContentsMargins(0, 0, 0, 0)
+        peaks_layout.addWidget(self.peaks_scroll_content)
         
         self.layout.addWidget(peaks_group)
         
@@ -1535,6 +1534,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         viz_layout = QVBoxLayout(viz_group)
         
         self.visualization_combo = QComboBox()
+        self.visualization_combo.setMinimumWidth(60)
         self.visualization_combo.currentTextChanged.connect(
             lambda text: self.visualization_parameter_changed.emit(text)
         )
@@ -1548,20 +1548,24 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         
         self.test_fit_btn = StandardButton("Test Fit Current Pixel")
         self.test_fit_btn.setToolTip("Click a pixel on the map, then click this to test your initial parameters.")
+        self.test_fit_btn.setMinimumWidth(0)
         self.test_fit_btn.clicked.connect(self.test_fit_requested.emit)
         actions_layout.addWidget(self.test_fit_btn)
-        
+
         self.run_fit_btn = PrimaryButton("Run Map Fitting")
+        self.run_fit_btn.setMinimumWidth(0)
         self.run_fit_btn.clicked.connect(self.run_map_fitting_requested.emit)
         actions_layout.addWidget(self.run_fit_btn)
-        
+
         self.export_batch_btn = StandardButton("Export to Batch System")
+        self.export_batch_btn.setMinimumWidth(0)
         self.export_batch_btn.setEnabled(False)
         self.export_batch_btn.clicked.connect(self.export_batch_requested.emit)
         actions_layout.addWidget(self.export_batch_btn)
 
         self.export_results_csv_btn = StandardButton("Export Results CSV")
         self.export_results_csv_btn.setToolTip("Export one row per pixel with peak parameters")
+        self.export_results_csv_btn.setMinimumWidth(0)
         self.export_results_csv_btn.setEnabled(False)
         self.export_results_csv_btn.clicked.connect(self.export_results_csv_requested.emit)
         actions_layout.addWidget(self.export_results_csv_btn)
@@ -1604,6 +1608,10 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             spin.setRange(range_min, range_max)
             spin.setValue(default_val)
             spin.setSingleStep(step)
+            # Ignored horizontal policy: lets the param grid columns shrink to
+            # whatever the splitter allows without inflating the panel's minimum.
+            spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            spin.setMinimumWidth(40)
             grid_layout.addWidget(spin, row_idx, col_idx)
 
             if col_idx == 1:
@@ -1639,14 +1647,19 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             shape_layout = QHBoxLayout()
             shape_combo = QComboBox()
             shape_combo.addItems(["Lorentzian", "Gaussian", "Pseudo-Voigt"])
+            shape_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            shape_combo.setMinimumWidth(60)
             shape_layout.addWidget(QLabel("Shape:"))
             shape_layout.addWidget(shape_combo)
-            shape_layout.addStretch()
             layout.addLayout(shape_layout)
             self.shape_combos.append(shape_combo)
 
             # Initial parameters and bounds grid
             grid = QGridLayout()
+            grid.setColumnStretch(0, 0)
+            grid.setColumnStretch(1, 1)
+            grid.setColumnStretch(2, 1)
+            grid.setColumnStretch(3, 1)
             grid.addWidget(QLabel("Init"), 0, 1)
             grid.addWidget(QLabel("Min"), 0, 2)
             grid.addWidget(QLabel("Max"), 0, 3)
@@ -1684,6 +1697,8 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self._update_visualization_combo()
         
     def _on_shape_changed(self, text, idx):
+        if idx >= len(self.eta_labels):
+            return
         is_pv = text == "Pseudo-Voigt"
         self.eta_labels[idx].setVisible(is_pv)
         for spin in self.eta_spins[idx].values():
