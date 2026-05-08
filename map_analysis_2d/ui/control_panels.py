@@ -488,7 +488,7 @@ class DimensionalityReductionControlPanel(BaseControlPanel):
         # PCA Parameters
         pca_params_group = ParameterGroupBox("PCA Parameters")
         self.pca_n_components_spin = pca_params_group.add_spinbox(
-            "Components", 2, 50, 5, width=60)
+            "Components", 2, 50, 5)
         self.pca_n_components_spin.setToolTip("Number of principal components to extract")
         pca_layout.addWidget(pca_params_group)
         
@@ -525,27 +525,27 @@ class DimensionalityReductionControlPanel(BaseControlPanel):
         # NMF Basic Parameters
         nmf_params_group = ParameterGroupBox("NMF Parameters")
         self.nmf_n_components_spin = nmf_params_group.add_spinbox(
-            "Components", 2, 20, 5, width=60)
+            "Components", 2, 20, 5)
         self.nmf_n_components_spin.setToolTip("Number of NMF components to extract")
-        
+
         self.nmf_max_iter_spin = nmf_params_group.add_spinbox(
-            "Max Iterations", 100, 1000, 200, width=60)
+            "Max Iterations", 100, 1000, 200)
         self.nmf_max_iter_spin.setToolTip("Maximum iterations for NMF convergence")
-        
+
         self.nmf_random_state_spin = nmf_params_group.add_spinbox(
-            "Random State", 0, 999, 42, width=60)
+            "Random State", 0, 999, 42)
         self.nmf_random_state_spin.setToolTip("Random seed for reproducible results")
         nmf_layout.addWidget(nmf_params_group)
         
         # NMF Advanced Parameters
         nmf_advanced_group = ParameterGroupBox("Advanced Options")
         self.nmf_batch_size_spin = nmf_advanced_group.add_spinbox(
-            "Batch Size", 500, 10000, 2000, width=80)
+            "Batch Size", 500, 10000, 2000)
         self.nmf_batch_size_spin.setToolTip("Maximum samples for fitting (larger datasets)")
-        
+
         # Solver selection
         self.nmf_solver_combo = nmf_advanced_group.add_combobox(
-            "Solver", ["mu", "cd"], 0, width=100)
+            "Solver", ["mu", "cd"], 0)
         self.nmf_solver_combo.setToolTip("mu: Multiplicative Update (stable), cd: Coordinate Descent (faster)")
         nmf_layout.addWidget(nmf_advanced_group)
         
