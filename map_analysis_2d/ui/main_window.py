@@ -1556,17 +1556,41 @@ class MapAnalysisMainWindow(QMainWindow):
     def _load_saved_peak_fitting_config(self):
         """Return the last-used Map Peak Fitting config from disk, if any."""
         try:
-            from core.config_manager import ConfigManager
-            cfg = ConfigManager()
+            from core.config_manager import get_config_manager
+            cfg = get_config_manager()
             saved = cfg.get('map_analysis.last_peak_fitting_config')
-            if not isinstance(saved, dict) or not saved.get('shapes'):
+            if not isinstance(saved, dict):
                 return None
+
+            shapes = saved.get('shapes')
+            if not isinstance(shapes, list) or not shapes:
+                return None
+
             region = saved.get('region')
             if isinstance(region, list) and len(region) == 2:
-                saved['region'] = tuple(region)
+                region = tuple(region)
+                saved['region'] = region
+            if not (isinstance(region, tuple) and len(region) == 2):
+                return None
+
             bounds = saved.get('bounds')
             if isinstance(bounds, list) and len(bounds) == 2:
-                saved['bounds'] = (list(bounds[0]), list(bounds[1]))
+                bounds = (list(bounds[0]), list(bounds[1]))
+                saved['bounds'] = bounds
+            if not (isinstance(bounds, tuple) and len(bounds) == 2
+                    and isinstance(bounds[0], list) and isinstance(bounds[1], list)):
+                return None
+
+            initial_params = saved.get('initial_params')
+            if not isinstance(initial_params, list):
+                return None
+            if not (len(initial_params) == len(bounds[0]) == len(bounds[1])):
+                return None
+
+            expected_param_count = sum(4 if s == "Pseudo-Voigt" else 3 for s in shapes)
+            if len(initial_params) < expected_param_count:
+                return None
+
             return saved
         except Exception as e:
             logger.debug("Could not load saved peak fitting config: %s", e)
@@ -1576,6 +1600,9 @@ class MapAnalysisMainWindow(QMainWindow):
         """Write the latest Map Peak Fitting config so the next session restores it."""
         if not config:
             return
+        # Update the in-memory fallback eagerly so a disk write failure can't
+        # leave _saved_peak_fitting_config stale relative to the latest panel state.
+        self._saved_peak_fitting_config = config
         try:
             serializable = dict(config)
             region = serializable.get('region')
@@ -1584,12 +1611,11 @@ class MapAnalysisMainWindow(QMainWindow):
             bounds = serializable.get('bounds')
             if isinstance(bounds, tuple) and len(bounds) == 2:
                 serializable['bounds'] = [list(bounds[0]), list(bounds[1])]
-            from core.config_manager import ConfigManager
-            cfg = ConfigManager()
+            from core.config_manager import get_config_manager
+            cfg = get_config_manager()
             cfg.set('map_analysis.last_peak_fitting_config', serializable)
-            self._saved_peak_fitting_config = config
         except Exception as e:
-            logger.debug("Could not save peak fitting config: %s", e)
+            logger.warning("Could not save peak fitting config: %s", e)
 
     def get_current_peak_fitting_control_panel(self):
         """Get the current peak fitting control panel if it exists."""
