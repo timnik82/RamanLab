@@ -49,7 +49,8 @@ class LastMapRestoreTest(unittest.TestCase):
                 get=lambda key, default=None: {
                     "map_analysis.last_map_path": str(pkl_path),
                     "map_analysis.last_map_type": "single_file",
-                }.get(key, default)
+                }.get(key, default),
+                set=MagicMock(),
             )
             restored_map = SimpleNamespace(spectra={(0, 0): object()})
 
@@ -61,6 +62,7 @@ class LastMapRestoreTest(unittest.TestCase):
         safe_load.assert_called_once_with(str(pkl_path))
         single_file_loader.assert_not_called()
         self.assertIs(window.map_data, restored_map)
+        cfg.set.assert_any_call("map_analysis.last_map_type", "pkl")
 
     def test_load_map_from_pkl_persists_pkl_type(self):
         window = self._make_window()

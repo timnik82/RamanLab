@@ -261,7 +261,7 @@ def _find_closest_pixel(self, x, y):
 - Modified: `map_analysis_2d/ui/main_window.py`
 
 **CSV Format:**
-```
+```csv
 X_um,Y_um,P1_Amp,P1_Cen,P1_Wid,P1_IntInt,P2_Amp,P2_Cen,P2_Wid,P2_Eta,P2_IntInt,Total_IntInt,R2,status,Fit Error,Fit Warning
 12.5,8.0,10.0,520.312,8.215,258.081,5.0,480.1,5.432,0.5,68.236,326.317,0.9845,success,,
 12.5,8.5,nan,nan,nan,nan,nan,nan,nan,nan,nan,nan,nan,failed,fit failed,

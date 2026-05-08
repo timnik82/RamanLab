@@ -229,9 +229,10 @@ class MapAnalysisMainWindow(QMainWindow):
                 self.map_data = SingleFileRamanMapData(
                     filepath=path, cosmic_ray_config=self.cosmic_ray_config
                 )
+                self._reset_peak_fitting_state(clear_config=True)
             else:
                 self.map_data = RamanMapData(path, cosmic_ray_config=self.cosmic_ray_config)
-            self._reset_peak_fitting_state(clear_config=True)
+                self._reset_peak_fitting_state(clear_config=True)
             self._clear_map_cache()
             self._initialize_integration_slider()
             self.update_map()
@@ -258,8 +259,9 @@ class MapAnalysisMainWindow(QMainWindow):
         save_data = safe_pickle_load(file_path)
 
         if isinstance(save_data, dict):
+            if 'map_data' not in save_data:
+                raise ValueError("Unsupported PKL format: missing 'map_data'")
             self.map_data = save_data['map_data']
-            self._reset_peak_fitting_state(clear_config=True)
 
             if 'cosmic_ray_config' in save_data:
                 self.cosmic_ray_config = save_data['cosmic_ray_config']
@@ -270,26 +272,30 @@ class MapAnalysisMainWindow(QMainWindow):
             version = metadata.get('version', 'Unknown')
         else:
             self.map_data = save_data
-            self._reset_peak_fitting_state(clear_config=True)
+            self.cosmic_ray_manager = SimpleCosmicRayManager(self.cosmic_ray_config)
             metadata = {}
             creation_time = 'Unknown (Legacy Format)'
             version = 'Legacy'
+
+        self._reset_peak_fitting_state(clear_config=True)
 
         reversed_count = 0
 
         if hasattr(self.map_data, 'target_wavenumbers') and self.map_data.target_wavenumbers is not None:
             wn = self.map_data.target_wavenumbers
-            print(f"[PKL LOAD] target_wavenumbers: {wn[0]:.1f} → {wn[-1]:.1f}")
+            if len(wn) > 0:
+                print(f"[PKL LOAD] target_wavenumbers: {wn[0]:.1f} → {wn[-1]:.1f}")
             if len(wn) > 1 and wn[0] > wn[-1]:
-                print(f"[PKL LOAD]   Reversing target_wavenumbers to ascending order")
+                print("[PKL LOAD]   Reversing target_wavenumbers to ascending order")
                 self.map_data.target_wavenumbers = wn[::-1]
                 reversed_count += 1
 
         if hasattr(self.map_data, 'wavenumbers') and self.map_data.wavenumbers is not None:
             wn = self.map_data.wavenumbers
-            print(f"[PKL LOAD] wavenumbers attribute: {wn[0]:.1f} → {wn[-1]:.1f}")
+            if len(wn) > 0:
+                print(f"[PKL LOAD] wavenumbers attribute: {wn[0]:.1f} → {wn[-1]:.1f}")
             if len(wn) > 1 and wn[0] > wn[-1]:
-                print(f"[PKL LOAD]   Reversing wavenumbers attribute to ascending order")
+                print("[PKL LOAD]   Reversing wavenumbers attribute to ascending order")
                 self.map_data.wavenumbers = wn[::-1]
                 reversed_count += 1
 
@@ -297,7 +303,8 @@ class MapAnalysisMainWindow(QMainWindow):
             spectra_reversed = 0
             first_spectrum = next(iter(self.map_data.spectra.values()))
             if hasattr(first_spectrum, 'wavenumbers') and first_spectrum.wavenumbers is not None:
-                print(f"[PKL LOAD] first spectrum wavenumbers: {first_spectrum.wavenumbers[0]:.1f} → {first_spectrum.wavenumbers[-1]:.1f}")
+                if len(first_spectrum.wavenumbers) > 0:
+                    print(f"[PKL LOAD] first spectrum wavenumbers: {first_spectrum.wavenumbers[0]:.1f} → {first_spectrum.wavenumbers[-1]:.1f}")
 
             for spectrum in self.map_data.spectra.values():
                 if hasattr(spectrum, 'wavenumbers') and spectrum.wavenumbers is not None:
@@ -316,7 +323,7 @@ class MapAnalysisMainWindow(QMainWindow):
         if reversed_count > 0:
             print(f"[PKL LOAD] ✓ Wavenumber reversal complete: {reversed_count} array type(s) corrected")
         else:
-            print(f"[PKL LOAD] ✓ Wavenumbers already in correct order")
+            print("[PKL LOAD] ✓ Wavenumbers already in correct order")
 
         return {
             'save_data': save_data,
