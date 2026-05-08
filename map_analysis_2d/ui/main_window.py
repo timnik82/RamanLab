@@ -534,8 +534,8 @@ class MapAnalysisMainWindow(QMainWindow):
         main_layout.addWidget(self.splitter)
         
         # Left panel for controls (remove max_width constraint to allow resizing)
-        self.controls_panel = ScrollableControlPanel(max_width=500)  # Increased max width
-        self.controls_panel.setMinimumWidth(200)  # Set minimum width to prevent too small
+        self.controls_panel = ScrollableControlPanel(max_width=700)
+        self.controls_panel.setMinimumWidth(280)
         self.create_permanent_controls()
         self.splitter.addWidget(self.controls_panel)
         
@@ -543,7 +543,7 @@ class MapAnalysisMainWindow(QMainWindow):
         self.create_visualization_panel(self.splitter)
         
         # Set initial splitter proportions (left panel ~20%, right panel ~80%)
-        self.splitter.setSizes([300, 1200])
+        self.splitter.setSizes([420, 1080])
         
         # Make the splitter handle more responsive
         self.splitter.setOpaqueResize(True)  # Show content while dragging

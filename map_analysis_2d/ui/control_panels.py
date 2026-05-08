@@ -147,7 +147,7 @@ class MapViewControlPanel(BaseControlPanel):
         self.range_width_spin.setValue(100.0)
         self.range_width_spin.setSingleStep(25.0)
         self.range_width_spin.setToolTip("Width of integration range")
-        self.range_width_spin.setMaximumWidth(100)
+        self.range_width_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         width_layout.addWidget(self.range_width_spin)
 
         width_widget = QWidget()
@@ -1155,20 +1155,15 @@ class MLControlPanel(BaseControlPanel):
         self.clustering_method_combo.addItems([
             "K-Means", "Gaussian Mixture", "DBSCAN", "Hierarchical"
         ])
-        self.clustering_method_combo.setMaximumWidth(150)
+        self.clustering_method_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.clustering_method_combo.setToolTip("Choose clustering algorithm")
         algo_layout.addWidget(self.clustering_method_combo)
         
         # Parameters - condensed
         cluster_params = ParameterGroupBox("Settings")
         self.n_clusters_spin = cluster_params.add_spinbox("Clusters", 2, 20, 3)
-        self.n_clusters_spin.setMaximumWidth(70)
-        
         self.eps_spin = cluster_params.add_double_spinbox("Eps", 0.1, 10.0, 0.5, 0.1)
-        self.eps_spin.setMaximumWidth(70)
-        
         self.min_samples_spin = cluster_params.add_spinbox("Min Samples", 2, 20, 5)
-        self.min_samples_spin.setMaximumWidth(70)
         
         # Training action - condensed
         action_group = QGroupBox("🚀 Run")
@@ -1492,10 +1487,12 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.min_wavenumber_spin = QDoubleSpinBox()
         self.min_wavenumber_spin.setRange(0, 4000)
         self.min_wavenumber_spin.setValue(400)
-        
+        self.min_wavenumber_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         self.max_wavenumber_spin = QDoubleSpinBox()
         self.max_wavenumber_spin.setRange(0, 4000)
         self.max_wavenumber_spin.setValue(600)
+        self.max_wavenumber_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         self.min_wavenumber_spin.valueChanged.connect(self.fitting_config_changed.emit)
         self.max_wavenumber_spin.valueChanged.connect(self.fitting_config_changed.emit)
@@ -1515,18 +1512,17 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.num_peaks_spin = QSpinBox()
         self.num_peaks_spin.setRange(1, 5)
         self.num_peaks_spin.setValue(1)
+        self.num_peaks_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.num_peaks_spin.valueChanged.connect(self._rebuild_peaks_ui)
         self.num_peaks_spin.valueChanged.connect(self.fitting_config_changed.emit)
         num_peaks_layout.addWidget(self.num_peaks_spin)
         peaks_layout.addLayout(num_peaks_layout)
         
-        # Scroll area for dynamic peak inputs
-        self.peaks_scroll = QScrollArea()
-        self.peaks_scroll.setWidgetResizable(True)
+        # Container for dynamic peak inputs (no scroll — outer panel scrolls)
         self.peaks_scroll_content = QWidget()
         self.peaks_scroll_layout = QVBoxLayout(self.peaks_scroll_content)
-        self.peaks_scroll.setWidget(self.peaks_scroll_content)
-        peaks_layout.addWidget(self.peaks_scroll)
+        self.peaks_scroll_layout.setContentsMargins(0, 0, 0, 0)
+        peaks_layout.addWidget(self.peaks_scroll_content)
         
         self.layout.addWidget(peaks_group)
         
@@ -1604,6 +1600,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             spin.setRange(range_min, range_max)
             spin.setValue(default_val)
             spin.setSingleStep(step)
+            spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             grid_layout.addWidget(spin, row_idx, col_idx)
 
             if col_idx == 1:
@@ -1639,14 +1636,18 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             shape_layout = QHBoxLayout()
             shape_combo = QComboBox()
             shape_combo.addItems(["Lorentzian", "Gaussian", "Pseudo-Voigt"])
+            shape_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             shape_layout.addWidget(QLabel("Shape:"))
             shape_layout.addWidget(shape_combo)
-            shape_layout.addStretch()
             layout.addLayout(shape_layout)
             self.shape_combos.append(shape_combo)
 
             # Initial parameters and bounds grid
             grid = QGridLayout()
+            grid.setColumnStretch(0, 0)
+            grid.setColumnStretch(1, 1)
+            grid.setColumnStretch(2, 1)
+            grid.setColumnStretch(3, 1)
             grid.addWidget(QLabel("Init"), 0, 1)
             grid.addWidget(QLabel("Min"), 0, 2)
             grid.addWidget(QLabel("Max"), 0, 3)

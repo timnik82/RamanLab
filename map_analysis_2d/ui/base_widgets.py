@@ -10,7 +10,7 @@ from typing import Optional, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QCheckBox, QSpinBox, QDoubleSpinBox,
-    QComboBox, QLineEdit, QScrollArea, QProgressBar
+    QComboBox, QLineEdit, QScrollArea, QProgressBar, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -69,43 +69,43 @@ class ParameterGroupBox(QGroupBox, SafeWidgetMixin):
         self.layout.setColumnStretch(1, 1)  # Stretch control column
         self.row_count = 0
         
-    def add_double_spinbox(self, label: str, min_val: float, max_val: float, 
+    def add_double_spinbox(self, label: str, min_val: float, max_val: float,
                           value: float, step: float = 1.0, width: int = 120) -> QDoubleSpinBox:
         """Add a double spinbox parameter."""
         label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)  # Constrain label width
-        label_widget.setWordWrap(True)  # Allow text wrapping
+        label_widget.setMaximumWidth(90)
+        label_widget.setWordWrap(True)
         spinbox = QDoubleSpinBox()
         spinbox.setRange(min_val, max_val)
         spinbox.setValue(value)
         spinbox.setSingleStep(step)
-        spinbox.setMaximumWidth(width)  # Increased default width
-        spinbox.setMinimumWidth(80)  # Increased minimum width for better usability
-        spinbox.setMinimumHeight(30)  # Add minimum height for better touch targets
-        
+        spinbox.setMinimumWidth(60)
+        spinbox.setMinimumHeight(30)
+        spinbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(spinbox, self.row_count, 1, Qt.AlignmentFlag.AlignLeft)
+        self.layout.addWidget(spinbox, self.row_count, 1)
         self.row_count += 1
-        
+
         return spinbox
-    
-    def add_spinbox(self, label: str, min_val: int, max_val: int, 
+
+    def add_spinbox(self, label: str, min_val: int, max_val: int,
                    value: int, width: int = 120) -> QSpinBox:
         """Add an integer spinbox parameter."""
         label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)  # Constrain label width
-        label_widget.setWordWrap(True)  # Allow text wrapping
+        label_widget.setMaximumWidth(90)
+        label_widget.setWordWrap(True)
         spinbox = QSpinBox()
         spinbox.setRange(min_val, max_val)
         spinbox.setValue(value)
-        spinbox.setMaximumWidth(width)  # Increased default width
-        spinbox.setMinimumWidth(80)  # Increased minimum width for better usability
-        spinbox.setMinimumHeight(30)  # Add minimum height for better touch targets
-        
+        spinbox.setMinimumWidth(60)
+        spinbox.setMinimumHeight(30)
+        spinbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(spinbox, self.row_count, 1, Qt.AlignmentFlag.AlignLeft)
+        self.layout.addWidget(spinbox, self.row_count, 1)
         self.row_count += 1
-        
+
         return spinbox
     
     def add_checkbox(self, label: str, checked: bool = False) -> QCheckBox:
@@ -122,18 +122,18 @@ class ParameterGroupBox(QGroupBox, SafeWidgetMixin):
     def add_combobox(self, label: str, items: list, current_index: int = 0, width: int = 120) -> QComboBox:
         """Add a combobox parameter."""
         label_widget = QLabel(f"{label}:")
-        label_widget.setMaximumWidth(90)  # Constrain label width 
-        label_widget.setWordWrap(True)  # Allow text wrapping
+        label_widget.setMaximumWidth(90)
+        label_widget.setWordWrap(True)
         combobox = QComboBox()
         combobox.addItems(items)
         combobox.setCurrentIndex(current_index)
-        combobox.setMaximumWidth(width)  # Control combobox width
-        combobox.setMinimumWidth(80)  # Minimum width for readability
-        
+        combobox.setMinimumWidth(60)
+        combobox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         self.layout.addWidget(label_widget, self.row_count, 0, Qt.AlignmentFlag.AlignTop)
-        self.layout.addWidget(combobox, self.row_count, 1, Qt.AlignmentFlag.AlignLeft)
+        self.layout.addWidget(combobox, self.row_count, 1)
         self.row_count += 1
-        
+
         return combobox
 
 
