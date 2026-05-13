@@ -482,9 +482,12 @@ class MapViewControlPanel(BaseControlPanel):
             hi = self.center_wavenumber_slider.maximum()
             self.center_wavenumber_slider.setValue(max(lo, min(hi, int(center))))
 
-        width = settings.get('range_width')
-        if width is not None:
-            self.range_width_spin.setValue(float(width))
+        for key, widget in [('range_width', self.range_width_spin),
+                             ('cr_threshold', self.threshold_spin),
+                             ('cr_neighbor_ratio', self.neighbor_ratio_spin)]:
+            val = settings.get(key)
+            if val is not None:
+                widget.setValue(float(val))
 
         feature = settings.get('feature')
         if feature and self.feature_combo.findText(feature) >= 0:
@@ -496,14 +499,6 @@ class MapViewControlPanel(BaseControlPanel):
             val = settings.get(key)
             if val is not None:
                 getattr(self, attr).setChecked(bool(val))
-
-        threshold = settings.get('cr_threshold')
-        if threshold is not None:
-            self.threshold_spin.setValue(float(threshold))
-
-        neighbor_ratio = settings.get('cr_neighbor_ratio')
-        if neighbor_ratio is not None:
-            self.neighbor_ratio_spin.setValue(float(neighbor_ratio))
 
 
 class DimensionalityReductionControlPanel(BaseControlPanel):

@@ -924,32 +924,33 @@ class MapAnalysisMainWindow(QMainWindow):
             
             self.controls_panel.add_section("map_controls", control_panel)
 
-            saved_view = self._load_map_view_settings()
-            if saved_view:
-                control_panel.restore_view_settings(saved_view)
-
             # Update template status in map control panel
             self.update_map_template_status()
-            
+
             # Always check for classification results and add them to the new control panel
             if hasattr(self, 'classification_results'):
                 logger.info("Found classification results, adding to new map control panel...")
                 self.update_map_features_with_classification()
-            
+
             # Also check for clustering results
             if hasattr(self, 'ml_results') and self.ml_results.get('type') == 'unsupervised':
                 logger.info("Found clustering results, adding to new map control panel...")
                 self.update_map_features_with_clustering()
-            
+
             # Also check for NMF results
             if hasattr(self, 'nmf_analyzer') and hasattr(self.nmf_analyzer, 'nmf') and self.nmf_analyzer.nmf is not None:
                 logger.info("Found NMF results, adding to new map control panel...")
                 self.update_map_features_with_nmf()
-            
+
             # Also check for template results
             if hasattr(self, 'template_fitting_results'):
                 logger.info("Found template fitting results, adding to new map control panel...")
                 self.update_map_features_with_templates()
+
+            # Restore after all dynamic features are populated so saved feature names are findable
+            saved_view = self._load_map_view_settings()
+            if saved_view:
+                control_panel.restore_view_settings(saved_view)
             
         elif index == self._get_template_tab_index():
             control_panel = TemplateControlPanel()
