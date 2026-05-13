@@ -1648,9 +1648,13 @@ class MapAnalysisMainWindow(QMainWindow):
             logger.warning("Could not save map view settings: %s", exc)
 
     def _load_map_view_settings(self):
-        from core.config_manager import get_config_manager
-        val = get_config_manager().get('map_analysis.map_view_settings')
-        return val if isinstance(val, dict) else None
+        try:
+            from core.config_manager import get_config_manager
+            val = get_config_manager().get('map_analysis.map_view_settings')
+            return val if isinstance(val, dict) else None
+        except Exception as exc:
+            logger.warning("Could not load map view settings: %s", exc)
+            return None
 
     def _get_peak_fitting_configuration(self):
         """Get the current peak fitting configuration from the UI or cached state."""

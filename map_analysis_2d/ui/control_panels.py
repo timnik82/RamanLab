@@ -518,6 +518,8 @@ class MapViewControlPanel(BaseControlPanel):
                 w.blockSignals(False)
             if self.integration_mode.currentText() == "Custom Range":
                 self._emit_wavenumber_range()
+            if not self.auto_scale_cb.isChecked():
+                self._emit_intensity_scaling()
 
 
 class DimensionalityReductionControlPanel(BaseControlPanel):
