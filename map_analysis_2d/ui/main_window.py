@@ -10967,9 +10967,13 @@ The map is now ready for analysis!"""
             )
         QMessageBox.information(self, "Success", message)
 
-        visualize_parameter = None
+        # After a fresh fit, default to Total Area unless the user had explicitly
+        # chosen something other than the legacy R-Squared default.
+        visualize_parameter = "Total Area (All Peaks)"
         if self.peak_fitting_config is not None:
-            visualize_parameter = self.peak_fitting_config.get('visualize_param') or self.peak_fitting_config.get('visualize_key')
+            saved = self.peak_fitting_config.get('visualize_param') or self.peak_fitting_config.get('visualize_key')
+            if saved and saved not in ("R-Squared", "R-Squared (Fit Quality)"):
+                visualize_parameter = saved
         self.update_peak_fitting_visualization(visualize_parameter)
 
     def _on_peak_fitting_failed(self, error_msg: str):
@@ -11014,15 +11018,17 @@ The map is now ready for analysis!"""
         display_parameter = parameter
         if parameter == "R-Squared" or "R-Squared" in parameter:
             param_key = "R-Squared"
+        elif parameter == "Total Area (All Peaks)":
+            param_key = "Total_Area"
         elif parameter in self.peak_fitting_results['map_parameters']:
             param_key = parameter
             if self.peak_fitting_config is not None and self.peak_fitting_config.get('visualize_key') == parameter:
                 display_parameter = self.peak_fitting_config.get('visualize_param', parameter)
         else:
-            match = re.match(r"Peak (\d+) (Center|Width|Amplitude|Eta)", parameter)
+            match = re.match(r"Peak (\d+) (Center|Width|Amplitude|Area|Eta)", parameter)
             if match:
                 peak_num = match.group(1)
-                param_type = {"Center": "Cen", "Width": "Wid", "Amplitude": "Amp", "Eta": "Eta"}[match.group(2)]
+                param_type = {"Center": "Cen", "Width": "Wid", "Amplitude": "Amp", "Area": "Area", "Eta": "Eta"}[match.group(2)]
                 param_key = f"P{peak_num}_{param_type}"
 
         if param_key is None:

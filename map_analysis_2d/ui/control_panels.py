@@ -1774,12 +1774,14 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         current_key = self.visualization_combo.currentData()
         self.visualization_combo.blockSignals(True)
         self.visualization_combo.clear()
+        self.visualization_combo.addItem("Total Area (All Peaks)", "Total_Area")
         self.visualization_combo.addItem("R-Squared (Fit Quality)", "R-Squared")
         for i in range(self.num_peaks_spin.value()):
             peak_index = i + 1
             self.visualization_combo.addItem(f"Peak {peak_index} Center", f"P{peak_index}_Cen")
             self.visualization_combo.addItem(f"Peak {peak_index} Width", f"P{peak_index}_Wid")
             self.visualization_combo.addItem(f"Peak {peak_index} Amplitude", f"P{peak_index}_Amp")
+            self.visualization_combo.addItem(f"Peak {peak_index} Area", f"P{peak_index}_Area")
             if self.shape_combos[i].currentText() == "Pseudo-Voigt":
                 self.visualization_combo.addItem(f"Peak {peak_index} Eta", f"P{peak_index}_Eta")
         self.visualization_combo.blockSignals(False)
@@ -1885,11 +1887,15 @@ class MapPeakFittingControlPanel(BaseControlPanel):
 
         self._update_visualization_combo()
 
-        if saved_visualize_key is not None:
-            selected_index = self.visualization_combo.findData(saved_visualize_key)
+        # Restore the saved visualization key, but treat "R-Squared" as the legacy
+        # default — if it was saved only because it used to be index 0, prefer the
+        # new default "Total_Area" instead.
+        restore_key = saved_visualize_key if saved_visualize_key != "R-Squared" else None
+        if restore_key is not None:
+            selected_index = self.visualization_combo.findData(restore_key)
             if selected_index >= 0:
                 # Block signals during restore to avoid a double render; emit once after.
                 self.visualization_combo.blockSignals(True)
                 self.visualization_combo.setCurrentIndex(selected_index)
                 self.visualization_combo.blockSignals(False)
-                self.visualization_parameter_changed.emit(self.visualization_combo.currentText())
+        self.visualization_parameter_changed.emit(self.visualization_combo.currentText())
