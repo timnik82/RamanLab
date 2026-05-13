@@ -113,18 +113,43 @@ class OverallStatsWidget(QWidget):
         self.fitted_pixels_label.setToolTip("Pixels with all required fitted peak parameters.")
         self.success_rate_label = QLabel("Success Rate: --")
         self.success_rate_label.setToolTip("Percentage of map pixels with complete successful fits.")
+        for label in (self.fitted_pixels_label, self.success_rate_label):
+            self._main_layout.addWidget(label)
+
+        self._mean_area_row = QWidget()
+        self._mean_area_layout = QHBoxLayout(self._mean_area_row)
+        self._mean_area_layout.setContentsMargins(0, 0, 0, 0)
+        self._mean_area_layout.setSpacing(6)
         self.mean_area_label = QLabel("Mean Area: --")
         self.mean_area_label.setToolTip("Average total integrated area over successfully fitted pixels.")
+        self._copy_mean_button = QPushButton("Copy")
+        icon = _style_icon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        if icon is not None:
+            self._copy_mean_button.setIcon(icon)
+        self._copy_mean_button.setToolTip("Copy the mean area to the clipboard.")
+        self._copy_mean_button.setEnabled(False)
+        self._copy_mean_button.clicked.connect(self._copy_mean_area)
+        self._mean_area_layout.addWidget(self.mean_area_label)
+        self._mean_area_layout.addStretch(1)
+        self._mean_area_layout.addWidget(self._copy_mean_button)
+        self._main_layout.addWidget(self._mean_area_row)
+
+        self._median_area_row = QWidget()
+        self._median_area_layout = QHBoxLayout(self._median_area_row)
+        self._median_area_layout.setContentsMargins(0, 0, 0, 0)
+        self._median_area_layout.setSpacing(6)
         self.median_area_label = QLabel("Median Area: --")
         self.median_area_label.setToolTip("Median total integrated area over successfully fitted pixels.")
-
-        for label in (
-            self.fitted_pixels_label,
-            self.success_rate_label,
-            self.mean_area_label,
-            self.median_area_label,
-        ):
-            self._main_layout.addWidget(label)
+        self._copy_median_button = QPushButton("Copy")
+        if icon is not None:
+            self._copy_median_button.setIcon(icon)
+        self._copy_median_button.setToolTip("Copy the median area to the clipboard.")
+        self._copy_median_button.setEnabled(False)
+        self._copy_median_button.clicked.connect(self._copy_median_area)
+        self._median_area_layout.addWidget(self.median_area_label)
+        self._median_area_layout.addStretch(1)
+        self._median_area_layout.addWidget(self._copy_median_button)
+        self._main_layout.addWidget(self._median_area_row)
 
         self._rows_layout = QVBoxLayout()
         self._rows_layout.setSpacing(2)
@@ -173,6 +198,8 @@ class OverallStatsWidget(QWidget):
         self.median_area_label.setText("Median Area: --")
         self.histogram_widget.set_values([])
         self._copy_button.setEnabled(False)
+        self._copy_mean_button.setEnabled(False)
+        self._copy_median_button.setEnabled(False)
 
     def set_loading(self, loading: bool, message: str = "Computing statistics..."):
         self.loading_label.setText(message)
@@ -214,12 +241,26 @@ class OverallStatsWidget(QWidget):
         self.grand_total_label.setText(f"Grand total area: {self._format_number(self._stats.grand_total_area)}")
         self.histogram_widget.set_values(self._stats.total_areas)
         self._copy_button.setEnabled(True)
+        self._copy_mean_button.setEnabled(True)
+        self._copy_median_button.setEnabled(True)
 
     def _copy_grand_total(self):
         if self._stats is None:
             return
         clipboard = QGuiApplication.clipboard()
         clipboard.setText(f"{self._stats.grand_total_area:.2f}")
+
+    def _copy_mean_area(self):
+        if self._stats is None:
+            return
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(f"{self._stats.mean_area:.2f}")
+
+    def _copy_median_area(self):
+        if self._stats is None:
+            return
+        clipboard = QGuiApplication.clipboard()
+        clipboard.setText(f"{self._stats.median_area:.2f}")
 
     def _format_number(self, value: float) -> str:
         if not np.isfinite(value):
