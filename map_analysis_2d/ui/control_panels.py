@@ -516,6 +516,8 @@ class MapViewControlPanel(BaseControlPanel):
         finally:
             for w in widgets_to_block:
                 w.blockSignals(False)
+            self._on_integration_mode_changed(self.integration_mode.currentText())
+            self._on_auto_scale_toggled(self.auto_scale_cb.isChecked())
             if self.integration_mode.currentText() == "Custom Range":
                 self._emit_wavenumber_range()
             if not self.auto_scale_cb.isChecked():
