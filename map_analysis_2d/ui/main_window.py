@@ -243,6 +243,7 @@ class MapAnalysisMainWindow(QMainWindow):
             self._initialize_integration_slider()
             self.update_map()
             self.on_tab_changed(self.tab_widget.currentIndex())
+            self._set_loaded_map_indicator(path)
             self.progress_status.hide_progress()
             self.statusBar().showMessage(
                 f"Restored last map: {Path(path).name} "
@@ -257,6 +258,22 @@ class MapAnalysisMainWindow(QMainWindow):
         """Return True when a saved map path should be restored via pickle loading."""
         path_obj = Path(path)
         return kind == 'pkl' or path_obj.suffix.lower() in {'.pkl', '.pickle'}
+
+    def _set_loaded_map_indicator(self, path=None):
+        """Update the persistent status bar label for the loaded map source."""
+        if not hasattr(self, 'loaded_map_label'):
+            return
+
+        if not path:
+            self.loaded_map_label.setText("Map: none")
+            self.loaded_map_label.setToolTip("No map loaded")
+            return
+
+        path_obj = Path(path)
+        display_name = path_obj.name or "unknown"
+
+        self.loaded_map_label.setText(f"Map: {display_name}")
+        self.loaded_map_label.setToolTip(str(path_obj))
 
     def _load_map_data_from_pickle(self, file_path):
         """Load map data from a saved pickle file, including legacy formats."""
@@ -842,6 +859,9 @@ class MapAnalysisMainWindow(QMainWindow):
         """Set up the status bar."""
         self.progress_status = ProgressStatusWidget()
         self.statusBar().addWidget(self.progress_status, 1)
+        self.loaded_map_label = QLabel("Map: none")
+        self.loaded_map_label.setToolTip("No map loaded")
+        self.statusBar().addPermanentWidget(self.loaded_map_label)
 
     def closeEvent(self, event):
         """Persist the active peak fitting panel state so it survives the next launch."""
@@ -1065,6 +1085,7 @@ class MapAnalysisMainWindow(QMainWindow):
                     perf_msg = ""
                 
                 self.statusBar().showMessage(f"Loaded {n_spectra:,} spectra{perf_msg}")
+                self._set_loaded_map_indicator(directory)
                 logger.info(f"Loaded map data with {n_spectra:,} spectra")
 
                 try:
@@ -1150,6 +1171,7 @@ class MapAnalysisMainWindow(QMainWindow):
                 f"Loaded {len(self.map_data.spectra)} spectra from single file "
                 f"({self.map_data.width} × {self.map_data.height})"
             )
+            self._set_loaded_map_indicator(file_path)
             logger.info(f"Loaded single-file map with {len(self.map_data.spectra)} spectra")
 
             try:
@@ -6989,6 +7011,7 @@ The map is now ready for analysis!"""
             QMessageBox.information(self, "Load Successful", summary_text)
             
             self.statusBar().showMessage(f"PKL map loaded: {spectra_count} spectra")
+            self._set_loaded_map_indicator(file_path)
             
         except Exception as e:
             self.progress_status.hide_progress()
@@ -7550,6 +7573,7 @@ The map is now ready for analysis!"""
             
             spectra_count = len(self.map_data.spectra)
             self.statusBar().showMessage(f"PKL map loaded: {spectra_count:,} spectra")
+            self._set_loaded_map_indicator(file_path)
             
         except Exception as e:
             self.progress_status.hide_progress()
