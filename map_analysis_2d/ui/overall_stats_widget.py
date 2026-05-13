@@ -10,6 +10,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QDoubleSpinBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -117,6 +118,34 @@ class OverallStatsWidget(QWidget):
         for label in (self.fitted_pixels_label, self.success_rate_label):
             self._main_layout.addWidget(label)
 
+        snr_row = QHBoxLayout()
+        snr_row.setContentsMargins(0, 0, 0, 0)
+        snr_row.setSpacing(4)
+        snr_row.addWidget(QLabel("SNR threshold:"))
+        self.snr_threshold_spin = QDoubleSpinBox()
+        self.snr_threshold_spin.setRange(0.1, 100.0)
+        self.snr_threshold_spin.setSingleStep(0.5)
+        self.snr_threshold_spin.setValue(3.0)
+        self.snr_threshold_spin.setSuffix(" SNR")
+        self.snr_threshold_spin.setToolTip(
+            "Pixels with fitted peak SNR at or above this value are counted as signal-rich."
+        )
+        self.snr_threshold_spin.valueChanged.connect(self._render_stats)
+        snr_row.addWidget(self.snr_threshold_spin)
+        snr_row.addStretch(1)
+        self._main_layout.addLayout(snr_row)
+
+        self.meaningful_pixels_label = QLabel("Detected (SNR ≥ 3.0): --")
+        self.meaningful_pixels_label.setToolTip(
+            "Pixels whose fitted peak SNR meets or exceeds the threshold — phase is detectable at this spot."
+        )
+        self.no_signal_label = QLabel("Not detected: --")
+        self.no_signal_label.setToolTip(
+            "Pixels below the SNR threshold or that failed to fit — no detectable phase signal at this spot."
+        )
+        for label in (self.meaningful_pixels_label, self.no_signal_label):
+            self._main_layout.addWidget(label)
+
         icon = _style_icon(QStyle.StandardPixmap.SP_DialogSaveButton)
 
         self.mean_area_label, self._copy_mean_button = self._create_stat_row(
@@ -193,6 +222,9 @@ class OverallStatsWidget(QWidget):
         self.fitted_pixels_label.setText("Fitted Pixels: --")
         self.success_rate_label.setText("Success Rate: --")
         self.success_rate_label.setStyleSheet("color: #777;")
+        self.meaningful_pixels_label.setText("Detected (SNR ≥ 3.0): --")
+        self.meaningful_pixels_label.setStyleSheet("color: #777;")
+        self.no_signal_label.setText("Not detected: --")
         self.mean_area_label.setText("Mean Area: --")
         self.median_area_label.setText("Median Area: --")
         self.histogram_widget.set_values([])
@@ -233,6 +265,23 @@ class OverallStatsWidget(QWidget):
         self.success_rate_label.setStyleSheet(
             f"color: {self._quality_color(self._stats.success_rate)}; font-weight: bold;"
         )
+
+        threshold = self.snr_threshold_spin.value()
+        meaningful = sum(1 for v in self._stats.snr_values if v >= threshold)
+        no_signal = self._stats.total_count - meaningful
+        total = self._stats.total_count
+        meaningful_pct = (meaningful / total * 100.0) if total else 0.0
+        no_signal_pct = (no_signal / total * 100.0) if total else 0.0
+        self.meaningful_pixels_label.setText(
+            f"Detected (SNR ≥ {threshold:.1f}): {meaningful:,} / {total:,}  ({meaningful_pct:.1f}%)"
+        )
+        self.meaningful_pixels_label.setStyleSheet(
+            f"color: {self._quality_color(meaningful_pct)}; font-weight: bold;"
+        )
+        self.no_signal_label.setText(
+            f"Not detected: {no_signal:,} / {total:,}  ({no_signal_pct:.1f}%)"
+        )
+
         self.mean_area_label.setText(
             f"Mean Area: {self._format_number(self._stats.mean_area)} +/- {self._format_number(self._stats.std_area)}"
         )

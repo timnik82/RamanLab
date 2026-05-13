@@ -24,6 +24,7 @@ class OverallStatistics:
     median_area: float
     std_area: float
     total_areas: List[float]
+    snr_values: List[float]  # per successfully-fitted pixel, parallel to total_areas
 
 
 def _iter_positions(*param_maps: Mapping[PosKey, float]) -> Iterable[PosKey]:
@@ -52,6 +53,7 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
 
     map_params: Dict[str, Dict[PosKey, float]] = fitting_results.get("map_parameters") or {}
     fit_errors: Mapping[PosKey, str] = fitting_results.get("fit_errors") or {}
+    snr_map: Mapping[PosKey, float] = fitting_results.get("snr") or {}
 
     peak_amp_dicts = [map_params.get(f"P{i}_Amp", {}) for i in range(1, len(shapes) + 1)]
     peak_wid_dicts = [map_params.get(f"P{i}_Wid", {}) for i in range(1, len(shapes) + 1)]
@@ -65,6 +67,7 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
     per_peak_totals = np.zeros(len(shapes), dtype=float)
     grand_total = 0.0
     total_areas: List[float] = []
+    snr_values: List[float] = []
     any_valid = False
 
     for pos_key in sorted(positions, key=lambda pos: (pos[1], pos[0])):
@@ -91,6 +94,7 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
         total_area = float(sum(per_pos_values))
         total_areas.append(total_area)
         grand_total += total_area
+        snr_values.append(float(snr_map.get(pos_key, 0.0)))
 
     fitted_count = len(total_areas)
     total_count = len(positions)
@@ -114,4 +118,5 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
         median_area=median_area,
         std_area=std_area,
         total_areas=total_areas,
+        snr_values=snr_values,
     )

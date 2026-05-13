@@ -62,6 +62,7 @@ class PeakFittingWorker(QThread):
                 'param_names': param_names,
                 'map_parameters': {name: {} for name in param_names},
                 'r_squared': {},
+                'snr': {},
                 'fit_errors': {},
                 'fit_warnings': {},
                 'config': dict(self.config),
@@ -126,6 +127,15 @@ class PeakFittingWorker(QThread):
                         ss_res = np.sum((y_fit - model_func(x_fit, *popt)) ** 2)
                         ss_tot = np.sum((y_fit - np.mean(y_fit)) ** 2)
                         r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+
+                        n_pts = len(y_fit)
+                        rmse = np.sqrt(ss_res / n_pts) if n_pts > 0 else 0.0
+                        amp_indices = [i for i, name in enumerate(param_names) if name.endswith('_Amp')]
+                        if amp_indices and rmse > 0:
+                            max_amp = max(float(popt[i]) for i in amp_indices)
+                            results['snr'][pos_key] = max_amp / rmse
+                        else:
+                            results['snr'][pos_key] = 0.0
 
                         for param_index, name in enumerate(param_names):
                             results['map_parameters'][name][pos_key] = popt[param_index]
