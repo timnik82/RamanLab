@@ -66,7 +66,7 @@ class LastMapRestoreTest(unittest.TestCase):
     def test_loaded_map_indicator_shows_file_name_and_full_path_tooltip(self):
         window = self._make_window()
 
-        window._set_loaded_map_indicator("/tmp/example.pkl", "pkl")
+        window._set_loaded_map_indicator("/tmp/example.pkl")
 
         self.assertEqual(window.loaded_map_label.text, "Map: example.pkl")
         self.assertEqual(window.loaded_map_label.tooltip, "/tmp/example.pkl")
@@ -74,7 +74,7 @@ class LastMapRestoreTest(unittest.TestCase):
     def test_loaded_map_indicator_shows_directory_name_and_full_path_tooltip(self):
         window = self._make_window()
 
-        window._set_loaded_map_indicator("/tmp/my_map_folder", "directory")
+        window._set_loaded_map_indicator("/tmp/my_map_folder")
 
         self.assertEqual(window.loaded_map_label.text, "Map: my_map_folder")
         self.assertEqual(window.loaded_map_label.tooltip, "/tmp/my_map_folder")
@@ -128,6 +128,22 @@ class LastMapRestoreTest(unittest.TestCase):
         cfg.set.assert_any_call("map_analysis.last_map_type", "pkl")
         self.assertEqual(window.loaded_map_label.text, "Map: test-map.pkl")
         self.assertEqual(window.loaded_map_label.tooltip, "/tmp/test-map.pkl")
+
+    def test_internal_pkl_loader_updates_loaded_map_indicator(self):
+        window = self._make_window()
+        window.cosmic_ray_manager = object()
+
+        restored_map = SimpleNamespace(
+            spectra={(0, 0): SimpleNamespace(wavenumbers=[100.0, 200.0], intensities=[1.0, 2.0], processed_intensities=None)},
+            target_wavenumbers=[100.0, 200.0],
+            wavenumbers=[100.0, 200.0],
+        )
+
+        with patch("pkl_utils.safe_pickle_load", return_value={"map_data": restored_map}):
+            window._load_pkl_file("/tmp/imported-map.pkl")
+
+        self.assertEqual(window.loaded_map_label.text, "Map: imported-map.pkl")
+        self.assertEqual(window.loaded_map_label.tooltip, "/tmp/imported-map.pkl")
 
 
 if __name__ == "__main__":
