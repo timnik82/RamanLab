@@ -243,7 +243,7 @@ class OverallStatsWidget(QWidget):
         self._copy_mean_button.setEnabled(np.isfinite(self._stats.mean_area))
         self._copy_median_button.setEnabled(np.isfinite(self._stats.median_area))
 
-    def _copy_stat_value(self, attr_name: str) -> None:
+    def _copy_stat_value(self, attr_name: str, *_) -> None:
         """Copy a named statistics value to the clipboard if finite."""
         if self._stats is None:
             return
