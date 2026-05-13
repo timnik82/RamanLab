@@ -155,10 +155,11 @@ class PeakFittingWorker(QThread):
                             if not np.isfinite(eta):
                                 eta = 0.5
                             area = compute_integrated_intensity(amp, wid, shape, eta)
-                            results['map_parameters'][f'P{peak_i}_Area'][pos_key] = area
                             if np.isfinite(area):
+                                results['map_parameters'][f'P{peak_i}_Area'][pos_key] = area
                                 total_area += area
                             else:
+                                results['map_parameters'][f'P{peak_i}_Area'][pos_key] = np.nan
                                 all_areas_valid = False
                         results['map_parameters']['Total_Area'][pos_key] = total_area if all_areas_valid else np.nan
                     except Exception as exc:
