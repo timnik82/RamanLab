@@ -145,13 +145,13 @@ class PeakFittingWorker(QThread):
                             results['map_parameters'][name][pos_key] = popt[param_index]
                         results['r_squared'][pos_key] = r_squared
 
+                        popt_dict = dict(zip(param_names, popt))
                         total_area = 0.0
                         all_areas_valid = True
                         for peak_i, shape in enumerate(shapes, start=1):
-                            amp = results['map_parameters'][f'P{peak_i}_Amp'][pos_key]
-                            wid = results['map_parameters'][f'P{peak_i}_Wid'][pos_key]
-                            eta_key = f'P{peak_i}_Eta'
-                            eta = results['map_parameters'][eta_key][pos_key] if eta_key in results['map_parameters'] else 0.5
+                            amp = popt_dict.get(f'P{peak_i}_Amp', np.nan)
+                            wid = popt_dict.get(f'P{peak_i}_Wid', np.nan)
+                            eta = popt_dict.get(f'P{peak_i}_Eta', 0.5)
                             if not np.isfinite(eta):
                                 eta = 0.5
                             area = compute_integrated_intensity(amp, wid, shape, eta)

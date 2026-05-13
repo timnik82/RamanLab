@@ -10967,9 +10967,13 @@ The map is now ready for analysis!"""
             )
         QMessageBox.information(self, "Success", message)
 
-        visualize_parameter = None
+        # After a fresh fit, default to Total Area unless the user had explicitly
+        # chosen something other than the legacy R-Squared default.
+        visualize_parameter = "Total Area (All Peaks)"
         if self.peak_fitting_config is not None:
-            visualize_parameter = self.peak_fitting_config.get('visualize_param') or self.peak_fitting_config.get('visualize_key')
+            saved = self.peak_fitting_config.get('visualize_param') or self.peak_fitting_config.get('visualize_key')
+            if saved and saved not in ("R-Squared", "R-Squared (Fit Quality)"):
+                visualize_parameter = saved
         self.update_peak_fitting_visualization(visualize_parameter)
 
     def _on_peak_fitting_failed(self, error_msg: str):

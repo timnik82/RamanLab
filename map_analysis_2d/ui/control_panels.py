@@ -1887,11 +1887,15 @@ class MapPeakFittingControlPanel(BaseControlPanel):
 
         self._update_visualization_combo()
 
-        if saved_visualize_key is not None:
-            selected_index = self.visualization_combo.findData(saved_visualize_key)
+        # Restore the saved visualization key, but treat "R-Squared" as the legacy
+        # default — if it was saved only because it used to be index 0, prefer the
+        # new default "Total_Area" instead.
+        restore_key = saved_visualize_key if saved_visualize_key != "R-Squared" else None
+        if restore_key is not None:
+            selected_index = self.visualization_combo.findData(restore_key)
             if selected_index >= 0:
                 # Block signals during restore to avoid a double render; emit once after.
                 self.visualization_combo.blockSignals(True)
                 self.visualization_combo.setCurrentIndex(selected_index)
                 self.visualization_combo.blockSignals(False)
-                self.visualization_parameter_changed.emit(self.visualization_combo.currentText())
+        self.visualization_parameter_changed.emit(self.visualization_combo.currentText())
