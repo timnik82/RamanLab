@@ -846,11 +846,13 @@ class MapAnalysisMainWindow(QMainWindow):
     def closeEvent(self, event):
         """Persist the active peak fitting panel state so it survives the next launch."""
         self._cache_peak_fitting_config_from_panel()
+        self._cache_map_view_settings_from_panel()
         super().closeEvent(event)
         
     def on_tab_changed(self, index: int):
         """Handle tab changes to update control panel."""
         self._cache_peak_fitting_config_from_panel()
+        self._cache_map_view_settings_from_panel()
         self.controls_panel.clear_dynamic_sections()
         
         if index == self._get_peak_fitting_tab_index():
@@ -921,29 +923,34 @@ class MapAnalysisMainWindow(QMainWindow):
             control_panel.fit_templates_to_map_requested.connect(self.fit_templates)
             
             self.controls_panel.add_section("map_controls", control_panel)
-            
+
             # Update template status in map control panel
             self.update_map_template_status()
-            
+
             # Always check for classification results and add them to the new control panel
             if hasattr(self, 'classification_results'):
                 logger.info("Found classification results, adding to new map control panel...")
                 self.update_map_features_with_classification()
-            
+
             # Also check for clustering results
             if hasattr(self, 'ml_results') and self.ml_results.get('type') == 'unsupervised':
                 logger.info("Found clustering results, adding to new map control panel...")
                 self.update_map_features_with_clustering()
-            
+
             # Also check for NMF results
             if hasattr(self, 'nmf_analyzer') and hasattr(self.nmf_analyzer, 'nmf') and self.nmf_analyzer.nmf is not None:
                 logger.info("Found NMF results, adding to new map control panel...")
                 self.update_map_features_with_nmf()
-            
+
             # Also check for template results
             if hasattr(self, 'template_fitting_results'):
                 logger.info("Found template fitting results, adding to new map control panel...")
                 self.update_map_features_with_templates()
+
+            # Restore after all dynamic features are populated so saved feature names are findable
+            saved_view = self._load_map_view_settings()
+            if saved_view:
+                control_panel.restore_view_settings(saved_view)
             
         elif index == self._get_template_tab_index():
             control_panel = TemplateControlPanel()
@@ -1623,6 +1630,28 @@ class MapAnalysisMainWindow(QMainWindow):
             if name == "peak_fitting_controls":
                 return section['widget']
         return None
+
+    def _get_current_map_view_panel(self):
+        return self.get_current_map_control_panel()
+
+    def _cache_map_view_settings_from_panel(self):
+        cp = self._get_current_map_view_panel()
+        if cp is None:
+            return
+        try:
+            from core.config_manager import get_config_manager
+            get_config_manager().set('map_analysis.map_view_settings', cp.get_view_settings())
+        except Exception as exc:
+            logger.warning("Could not save map view settings: %s", exc)
+
+    def _load_map_view_settings(self):
+        try:
+            from core.config_manager import get_config_manager
+            val = get_config_manager().get('map_analysis.map_view_settings')
+            return val if isinstance(val, dict) else None
+        except Exception as exc:
+            logger.warning("Could not load map view settings: %s", exc)
+            return None
 
     def _get_peak_fitting_configuration(self):
         """Get the current peak fitting configuration from the UI or cached state."""
