@@ -11014,15 +11014,17 @@ The map is now ready for analysis!"""
         display_parameter = parameter
         if parameter == "R-Squared" or "R-Squared" in parameter:
             param_key = "R-Squared"
+        elif parameter == "Total Area (All Peaks)":
+            param_key = "Total_Area"
         elif parameter in self.peak_fitting_results['map_parameters']:
             param_key = parameter
             if self.peak_fitting_config is not None and self.peak_fitting_config.get('visualize_key') == parameter:
                 display_parameter = self.peak_fitting_config.get('visualize_param', parameter)
         else:
-            match = re.match(r"Peak (\d+) (Center|Width|Amplitude|Eta)", parameter)
+            match = re.match(r"Peak (\d+) (Center|Width|Amplitude|Area|Eta)", parameter)
             if match:
                 peak_num = match.group(1)
-                param_type = {"Center": "Cen", "Width": "Wid", "Amplitude": "Amp", "Eta": "Eta"}[match.group(2)]
+                param_type = {"Center": "Cen", "Width": "Wid", "Amplitude": "Amp", "Area": "Area", "Eta": "Eta"}[match.group(2)]
                 param_key = f"P{peak_num}_{param_type}"
 
         if param_key is None:

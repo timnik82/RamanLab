@@ -1774,12 +1774,14 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         current_key = self.visualization_combo.currentData()
         self.visualization_combo.blockSignals(True)
         self.visualization_combo.clear()
+        self.visualization_combo.addItem("Total Area (All Peaks)", "Total_Area")
         self.visualization_combo.addItem("R-Squared (Fit Quality)", "R-Squared")
         for i in range(self.num_peaks_spin.value()):
             peak_index = i + 1
             self.visualization_combo.addItem(f"Peak {peak_index} Center", f"P{peak_index}_Cen")
             self.visualization_combo.addItem(f"Peak {peak_index} Width", f"P{peak_index}_Wid")
             self.visualization_combo.addItem(f"Peak {peak_index} Amplitude", f"P{peak_index}_Amp")
+            self.visualization_combo.addItem(f"Peak {peak_index} Area", f"P{peak_index}_Area")
             if self.shape_combos[i].currentText() == "Pseudo-Voigt":
                 self.visualization_combo.addItem(f"Peak {peak_index} Eta", f"P{peak_index}_Eta")
         self.visualization_combo.blockSignals(False)

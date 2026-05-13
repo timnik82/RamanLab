@@ -46,6 +46,7 @@ class PeakFittingWorker(QThread):
 
             from map_analysis_2d.core.math_models import (
                 DEFAULT_CURVE_FIT_MAXFEV,
+                compute_integrated_intensity,
                 create_multi_peak_model,
                 get_param_names,
             )
@@ -56,12 +57,15 @@ class PeakFittingWorker(QThread):
             min_wn, max_wn = self.config['region']
 
             amp_indices = [i for i, name in enumerate(param_names) if name.endswith('_Amp')]
+            shapes = self.config['shapes']
+            n_peaks = len(shapes)
+            area_keys = [f"P{i}_Area" for i in range(1, n_peaks + 1)] + ["Total_Area"]
             total = len(self.spectra)
             results = {
-                'n_peaks': len(self.config['shapes']),
-                'peak_shapes': list(self.config['shapes']),
+                'n_peaks': n_peaks,
+                'peak_shapes': list(shapes),
                 'param_names': param_names,
-                'map_parameters': {name: {} for name in param_names},
+                'map_parameters': {name: {} for name in param_names + area_keys},
                 'r_squared': {},
                 'snr': {},
                 'fit_errors': {},
@@ -71,7 +75,7 @@ class PeakFittingWorker(QThread):
 
             def store_failed_fit(pos_key, message):
                 results['fit_errors'][pos_key] = message
-                for name in param_names:
+                for name in param_names + area_keys:
                     results['map_parameters'][name][pos_key] = np.nan
                 results['r_squared'][pos_key] = np.nan
 
@@ -140,6 +144,23 @@ class PeakFittingWorker(QThread):
                         for param_index, name in enumerate(param_names):
                             results['map_parameters'][name][pos_key] = popt[param_index]
                         results['r_squared'][pos_key] = r_squared
+
+                        total_area = 0.0
+                        all_areas_valid = True
+                        for peak_i, shape in enumerate(shapes, start=1):
+                            amp = results['map_parameters'][f'P{peak_i}_Amp'][pos_key]
+                            wid = results['map_parameters'][f'P{peak_i}_Wid'][pos_key]
+                            eta_key = f'P{peak_i}_Eta'
+                            eta = results['map_parameters'][eta_key][pos_key] if eta_key in results['map_parameters'] else 0.5
+                            if not np.isfinite(eta):
+                                eta = 0.5
+                            area = compute_integrated_intensity(amp, wid, shape, eta)
+                            results['map_parameters'][f'P{peak_i}_Area'][pos_key] = area
+                            if np.isfinite(area):
+                                total_area += area
+                            else:
+                                all_areas_valid = False
+                        results['map_parameters']['Total_Area'][pos_key] = total_area if all_areas_valid else np.nan
                     except Exception as exc:
                         logger.debug("Fit failed for position %s: %s", pos_key, exc)
                         store_failed_fit(pos_key, str(exc))
