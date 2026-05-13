@@ -55,6 +55,7 @@ class PeakFittingWorker(QThread):
             bounds = self.config['bounds']
             min_wn, max_wn = self.config['region']
 
+            amp_indices = [i for i, name in enumerate(param_names) if name.endswith('_Amp')]
             total = len(self.spectra)
             results = {
                 'n_peaks': len(self.config['shapes']),
@@ -62,6 +63,7 @@ class PeakFittingWorker(QThread):
                 'param_names': param_names,
                 'map_parameters': {name: {} for name in param_names},
                 'r_squared': {},
+                'snr': {},
                 'fit_errors': {},
                 'fit_warnings': {},
                 'config': dict(self.config),
@@ -126,6 +128,14 @@ class PeakFittingWorker(QThread):
                         ss_res = np.sum((y_fit - model_func(x_fit, *popt)) ** 2)
                         ss_tot = np.sum((y_fit - np.mean(y_fit)) ** 2)
                         r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+
+                        n_pts = len(y_fit)
+                        rmse = np.sqrt(ss_res / n_pts) if n_pts > 0 else 0.0
+                        if amp_indices:
+                            max_amp = max(float(popt[i]) for i in amp_indices)
+                            results['snr'][pos_key] = max_amp / rmse if rmse > 0 else (np.inf if max_amp > 0 else 0.0)
+                        else:
+                            results['snr'][pos_key] = 0.0
 
                         for param_index, name in enumerate(param_names):
                             results['map_parameters'][name][pos_key] = popt[param_index]
