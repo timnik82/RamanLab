@@ -145,7 +145,7 @@ class PeakFittingWorker(QThread):
                             results['map_parameters'][name][pos_key] = popt[param_index]
                         results['r_squared'][pos_key] = r_squared
 
-                        popt_dict = dict(zip(param_names, popt))
+                        popt_dict = dict(zip(param_names, popt, strict=True))
                         total_area = 0.0
                         all_areas_valid = True
                         for peak_i, shape in enumerate(shapes, start=1):
