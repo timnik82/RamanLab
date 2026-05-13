@@ -18,9 +18,25 @@ class _DummyProgress:
 class _DummyStatusBar:
     def __init__(self):
         self.messages = []
+        self.permanent_widgets = []
 
     def showMessage(self, message, *_args):
         self.messages.append(message)
+
+    def addPermanentWidget(self, widget):
+        self.permanent_widgets.append(widget)
+
+
+class _DummyLabel:
+    def __init__(self, text=""):
+        self.text = text
+        self.tooltip = ""
+
+    def setText(self, text):
+        self.text = text
+
+    def setToolTip(self, tooltip):
+        self.tooltip = tooltip
 
 
 class LastMapRestoreTest(unittest.TestCase):
@@ -36,7 +52,32 @@ class LastMapRestoreTest(unittest.TestCase):
         window.on_tab_changed = MagicMock()
         status_bar = _DummyStatusBar()
         window.statusBar = lambda: status_bar
+        window.loaded_map_label = _DummyLabel("Map: none")
         return window
+
+    def test_loaded_map_indicator_shows_empty_state(self):
+        window = self._make_window()
+
+        window._set_loaded_map_indicator()
+
+        self.assertEqual(window.loaded_map_label.text, "Map: none")
+        self.assertEqual(window.loaded_map_label.tooltip, "No map loaded")
+
+    def test_loaded_map_indicator_shows_file_name_and_full_path_tooltip(self):
+        window = self._make_window()
+
+        window._set_loaded_map_indicator("/tmp/example.pkl", "pkl")
+
+        self.assertEqual(window.loaded_map_label.text, "Map: example.pkl")
+        self.assertEqual(window.loaded_map_label.tooltip, "/tmp/example.pkl")
+
+    def test_loaded_map_indicator_shows_directory_name_and_full_path_tooltip(self):
+        window = self._make_window()
+
+        window._set_loaded_map_indicator("/tmp/my_map_folder", "directory")
+
+        self.assertEqual(window.loaded_map_label.text, "Map: my_map_folder")
+        self.assertEqual(window.loaded_map_label.tooltip, "/tmp/my_map_folder")
 
     def test_restore_last_map_treats_legacy_single_file_pkl_as_pickle(self):
         window = self._make_window()
@@ -63,6 +104,8 @@ class LastMapRestoreTest(unittest.TestCase):
         single_file_loader.assert_not_called()
         self.assertIs(window.map_data, restored_map)
         cfg.set.assert_any_call("map_analysis.last_map_type", "pkl")
+        self.assertEqual(window.loaded_map_label.text, "Map: saved_map.pkl")
+        self.assertEqual(window.loaded_map_label.tooltip, str(pkl_path))
 
     def test_load_map_from_pkl_persists_pkl_type(self):
         window = self._make_window()
@@ -83,6 +126,8 @@ class LastMapRestoreTest(unittest.TestCase):
 
         cfg.set.assert_any_call("map_analysis.last_map_path", "/tmp/test-map.pkl")
         cfg.set.assert_any_call("map_analysis.last_map_type", "pkl")
+        self.assertEqual(window.loaded_map_label.text, "Map: test-map.pkl")
+        self.assertEqual(window.loaded_map_label.tooltip, "/tmp/test-map.pkl")
 
 
 if __name__ == "__main__":
