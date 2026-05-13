@@ -135,7 +135,7 @@ class OverallStatsWidget(QWidget):
         snr_row.addStretch(1)
         self._main_layout.addLayout(snr_row)
 
-        self.meaningful_pixels_label = QLabel("Detected (SNR ≥ 3.0): --")
+        self.meaningful_pixels_label = QLabel(f"Detected (SNR ≥ {self.snr_threshold_spin.value():.1f}): --")
         self.meaningful_pixels_label.setToolTip(
             "Pixels whose fitted peak SNR meets or exceeds the threshold — phase is detectable at this spot."
         )
@@ -222,7 +222,7 @@ class OverallStatsWidget(QWidget):
         self.fitted_pixels_label.setText("Fitted Pixels: --")
         self.success_rate_label.setText("Success Rate: --")
         self.success_rate_label.setStyleSheet("color: #777;")
-        self.meaningful_pixels_label.setText("Detected (SNR ≥ 3.0): --")
+        self.meaningful_pixels_label.setText(f"Detected (SNR ≥ {self.snr_threshold_spin.value():.1f}): --")
         self.meaningful_pixels_label.setStyleSheet("color: #777;")
         self.no_signal_label.setText("Not detected: --")
         self.mean_area_label.setText("Mean Area: --")

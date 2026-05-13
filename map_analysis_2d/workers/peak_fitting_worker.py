@@ -55,6 +55,7 @@ class PeakFittingWorker(QThread):
             bounds = self.config['bounds']
             min_wn, max_wn = self.config['region']
 
+            amp_indices = [i for i, name in enumerate(param_names) if name.endswith('_Amp')]
             total = len(self.spectra)
             results = {
                 'n_peaks': len(self.config['shapes']),
@@ -130,10 +131,9 @@ class PeakFittingWorker(QThread):
 
                         n_pts = len(y_fit)
                         rmse = np.sqrt(ss_res / n_pts) if n_pts > 0 else 0.0
-                        amp_indices = [i for i, name in enumerate(param_names) if name.endswith('_Amp')]
-                        if amp_indices and rmse > 0:
+                        if amp_indices:
                             max_amp = max(float(popt[i]) for i in amp_indices)
-                            results['snr'][pos_key] = max_amp / rmse
+                            results['snr'][pos_key] = max_amp / rmse if rmse > 0 else (np.inf if max_amp > 0 else 0.0)
                         else:
                             results['snr'][pos_key] = 0.0
 
