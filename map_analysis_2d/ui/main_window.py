@@ -1632,10 +1632,7 @@ class MapAnalysisMainWindow(QMainWindow):
         return None
 
     def _get_current_map_view_panel(self):
-        for name, section in self.controls_panel.sections.items():
-            if name == "map_controls":
-                return section['widget']
-        return None
+        return self.get_current_map_control_panel()
 
     def _cache_map_view_settings_from_panel(self):
         cp = self._get_current_map_view_panel()
