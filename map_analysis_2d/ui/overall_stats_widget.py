@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Optional, Sequence
 
 from PySide6.QtCore import Slot
@@ -113,46 +114,69 @@ class OverallStatsWidget(QWidget):
         self.fitted_pixels_label.setToolTip("Pixels with all required fitted peak parameters.")
         self.success_rate_label = QLabel("Success Rate: --")
         self.success_rate_label.setToolTip("Percentage of map pixels with complete successful fits.")
-        self.mean_area_label = QLabel("Mean Area: --")
-        self.mean_area_label.setToolTip("Average total integrated area over successfully fitted pixels.")
-        self.median_area_label = QLabel("Median Area: --")
-        self.median_area_label.setToolTip("Median total integrated area over successfully fitted pixels.")
-
-        for label in (
-            self.fitted_pixels_label,
-            self.success_rate_label,
-            self.mean_area_label,
-            self.median_area_label,
-        ):
+        for label in (self.fitted_pixels_label, self.success_rate_label):
             self._main_layout.addWidget(label)
+
+        icon = _style_icon(QStyle.StandardPixmap.SP_DialogSaveButton)
+
+        self.mean_area_label, self._copy_mean_button = self._create_stat_row(
+            "Mean Area: --",
+            "Average total integrated area over successfully fitted pixels.",
+            "Copy the mean area to the clipboard.",
+            partial(self._copy_stat_value, "mean_area"),
+            icon,
+        )
+        self.median_area_label, self._copy_median_button = self._create_stat_row(
+            "Median Area: --",
+            "Median total integrated area over successfully fitted pixels.",
+            "Copy the median area to the clipboard.",
+            partial(self._copy_stat_value, "median_area"),
+            icon,
+        )
 
         self._rows_layout = QVBoxLayout()
         self._rows_layout.setSpacing(2)
         self._main_layout.addLayout(self._rows_layout)
 
-        self._grand_total_row = QWidget()
-        self._grand_total_layout = QHBoxLayout(self._grand_total_row)
-        self._grand_total_layout.setContentsMargins(0, 0, 0, 0)
-        self._grand_total_layout.setSpacing(6)
+        self.grand_total_label, self._copy_button = self._create_stat_row(
+            "",
+            "Sum of integrated intensity across all fitted peaks and pixels.",
+            "Copy the grand total area to the clipboard.",
+            partial(self._copy_stat_value, "grand_total_area"),
+            icon,
+        )
 
-        self.grand_total_label = QLabel()
-        self.grand_total_label.setToolTip("Sum of integrated intensity across all fitted peaks and pixels.")
-        self._copy_button = QPushButton("Copy")
-        icon = _style_icon(QStyle.StandardPixmap.SP_DialogSaveButton)
-        if icon is not None:
-            self._copy_button.setIcon(icon)
-        self._copy_button.setToolTip("Copy the grand total area to the clipboard.")
-        self._copy_button.setEnabled(False)
-        self._copy_button.clicked.connect(self._copy_grand_total)
-        self._grand_total_layout.addWidget(self.grand_total_label)
-        self._grand_total_layout.addStretch(1)
-        self._grand_total_layout.addWidget(self._copy_button)
-
-        self._main_layout.addWidget(self._grand_total_row)
         self.histogram_widget = MiniHistogramWidget()
         self.histogram_widget.hide()
         self._main_layout.addWidget(self.histogram_widget)
         self.clear_stats()
+
+    def _create_stat_row(
+        self,
+        label_text: str,
+        label_tooltip: str,
+        button_tooltip: str,
+        copy_slot,
+        icon,
+    ) -> tuple[QLabel, QPushButton]:
+        """Create a label + Copy button row and append it to the main layout."""
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        label = QLabel(label_text)
+        label.setToolTip(label_tooltip)
+        button = QPushButton("Copy")
+        if icon is not None:
+            button.setIcon(icon)
+        button.setToolTip(button_tooltip)
+        button.setEnabled(False)
+        button.clicked.connect(copy_slot)
+        layout.addWidget(label)
+        layout.addStretch(1)
+        layout.addWidget(button)
+        self._main_layout.addWidget(row)
+        return label, button
 
     def _clear_rows(self) -> None:
         while self._rows_layout.count():
@@ -173,6 +197,8 @@ class OverallStatsWidget(QWidget):
         self.median_area_label.setText("Median Area: --")
         self.histogram_widget.set_values([])
         self._copy_button.setEnabled(False)
+        self._copy_mean_button.setEnabled(False)
+        self._copy_median_button.setEnabled(False)
 
     def set_loading(self, loading: bool, message: str = "Computing statistics..."):
         self.loading_label.setText(message)
@@ -213,13 +239,17 @@ class OverallStatsWidget(QWidget):
         self.median_area_label.setText(f"Median Area: {self._format_number(self._stats.median_area)}")
         self.grand_total_label.setText(f"Grand total area: {self._format_number(self._stats.grand_total_area)}")
         self.histogram_widget.set_values(self._stats.total_areas)
-        self._copy_button.setEnabled(True)
+        self._copy_button.setEnabled(np.isfinite(self._stats.grand_total_area))
+        self._copy_mean_button.setEnabled(np.isfinite(self._stats.mean_area))
+        self._copy_median_button.setEnabled(np.isfinite(self._stats.median_area))
 
-    def _copy_grand_total(self):
+    def _copy_stat_value(self, attr_name: str, *_) -> None:
+        """Copy a named statistics value to the clipboard if finite."""
         if self._stats is None:
             return
-        clipboard = QGuiApplication.clipboard()
-        clipboard.setText(f"{self._stats.grand_total_area:.2f}")
+        value = getattr(self._stats, attr_name, None)
+        if value is not None and np.isfinite(value):
+            QGuiApplication.clipboard().setText(f"{value:.2f}")
 
     def _format_number(self, value: float) -> str:
         if not np.isfinite(value):
