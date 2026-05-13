@@ -466,39 +466,58 @@ class MapViewControlPanel(BaseControlPanel):
             'center_wavenumber': self.center_wavenumber_slider.value(),
             'range_width': self.range_width_spin.value(),
             'auto_scale': self.auto_scale_cb.isChecked(),
+            'vmin': self.vmin_spin.value(),
+            'vmax': self.vmax_spin.value(),
             'cosmic_ray_enabled': self.cosmic_ray_enabled_cb.isChecked(),
             'cr_threshold': self.threshold_spin.value(),
             'cr_neighbor_ratio': self.neighbor_ratio_spin.value(),
         }
 
     def restore_view_settings(self, settings: dict):
-        mode = settings.get('integration_mode')
-        if mode in ("Full Spectrum", "Custom Range"):
-            self.integration_mode.setCurrentText(mode)
+        widgets_to_block = [
+            self.integration_mode, self.center_wavenumber_slider,
+            self.range_width_spin, self.feature_combo,
+            self.use_processed_cb, self.auto_scale_cb,
+            self.cosmic_ray_enabled_cb, self.threshold_spin,
+            self.neighbor_ratio_spin, self.vmin_spin, self.vmax_spin,
+        ]
+        for w in widgets_to_block:
+            w.blockSignals(True)
+        try:
+            mode = settings.get('integration_mode')
+            if mode in ("Full Spectrum", "Custom Range"):
+                self.integration_mode.setCurrentText(mode)
 
-        center = settings.get('center_wavenumber')
-        if center is not None:
-            lo = self.center_wavenumber_slider.minimum()
-            hi = self.center_wavenumber_slider.maximum()
-            self.center_wavenumber_slider.setValue(max(lo, min(hi, int(center))))
+            center = settings.get('center_wavenumber')
+            if center is not None:
+                lo = self.center_wavenumber_slider.minimum()
+                hi = self.center_wavenumber_slider.maximum()
+                self.center_wavenumber_slider.setValue(max(lo, min(hi, int(center))))
 
-        for key, widget in [('range_width', self.range_width_spin),
-                             ('cr_threshold', self.threshold_spin),
-                             ('cr_neighbor_ratio', self.neighbor_ratio_spin)]:
-            val = settings.get(key)
-            if val is not None:
-                widget.setValue(float(val))
+            for key, widget in [('range_width', self.range_width_spin),
+                                 ('vmin', self.vmin_spin),
+                                 ('vmax', self.vmax_spin),
+                                 ('cr_threshold', self.threshold_spin),
+                                 ('cr_neighbor_ratio', self.neighbor_ratio_spin)]:
+                val = settings.get(key)
+                if val is not None:
+                    widget.setValue(float(val))
 
-        feature = settings.get('feature')
-        if feature and self.feature_combo.findText(feature) >= 0:
-            self.feature_combo.setCurrentText(feature)
+            feature = settings.get('feature')
+            if feature and self.feature_combo.findText(feature) >= 0:
+                self.feature_combo.setCurrentText(feature)
 
-        for attr, key in [('use_processed_cb', 'use_processed'),
-                          ('auto_scale_cb', 'auto_scale'),
-                          ('cosmic_ray_enabled_cb', 'cosmic_ray_enabled')]:
-            val = settings.get(key)
-            if val is not None:
-                getattr(self, attr).setChecked(bool(val))
+            for attr, key in [('use_processed_cb', 'use_processed'),
+                               ('auto_scale_cb', 'auto_scale'),
+                               ('cosmic_ray_enabled_cb', 'cosmic_ray_enabled')]:
+                val = settings.get(key)
+                if val is not None:
+                    getattr(self, attr).setChecked(bool(val))
+        finally:
+            for w in widgets_to_block:
+                w.blockSignals(False)
+            if self.integration_mode.currentText() == "Custom Range":
+                self._emit_wavenumber_range()
 
 
 class DimensionalityReductionControlPanel(BaseControlPanel):

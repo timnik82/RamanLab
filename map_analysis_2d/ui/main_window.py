@@ -1641,8 +1641,11 @@ class MapAnalysisMainWindow(QMainWindow):
         cp = self._get_current_map_view_panel()
         if cp is None:
             return
-        from core.config_manager import get_config_manager
-        get_config_manager().set('map_analysis.map_view_settings', cp.get_view_settings())
+        try:
+            from core.config_manager import get_config_manager
+            get_config_manager().set('map_analysis.map_view_settings', cp.get_view_settings())
+        except Exception as exc:
+            logger.warning("Could not save map view settings: %s", exc)
 
     def _load_map_view_settings(self):
         from core.config_manager import get_config_manager
