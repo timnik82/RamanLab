@@ -245,6 +245,7 @@ class OverallStatsWidget(QWidget):
             return
 
         self._stats = stats
+        self.set_loading(False)
         self._render_stats()
 
     def _render_stats(self):
