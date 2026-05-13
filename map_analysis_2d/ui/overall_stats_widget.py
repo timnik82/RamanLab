@@ -289,9 +289,9 @@ class OverallStatsWidget(QWidget):
         self.median_area_label.setText(f"Median Area: {self._format_number(self._stats.median_area)}")
         self.grand_total_label.setText(f"Grand total area: {self._format_number(self._stats.grand_total_area)}")
         self.histogram_widget.set_values(self._stats.total_areas)
-        self._copy_button.setEnabled(np.isfinite(self._stats.grand_total_area))
-        self._copy_mean_button.setEnabled(np.isfinite(self._stats.mean_area))
-        self._copy_median_button.setEnabled(np.isfinite(self._stats.median_area))
+        self._copy_button.setEnabled(bool(np.isfinite(self._stats.grand_total_area)))
+        self._copy_mean_button.setEnabled(bool(np.isfinite(self._stats.mean_area)))
+        self._copy_median_button.setEnabled(bool(np.isfinite(self._stats.median_area)))
 
     def _copy_stat_value(self, attr_name: str, *_) -> None:
         """Copy a named statistics value to the clipboard if finite."""
