@@ -1846,73 +1846,71 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         region = config.get("region")
         saved_visualize_key = config.get("visualize_key")
         self._suppress_fitting_config_changed = True
-
-        # Block signals to avoid spurious fitting_config_changed during restore.
-        for spin in (self.min_wavenumber_spin, self.max_wavenumber_spin, self.num_peaks_spin):
-            spin.blockSignals(True)
         try:
-            if region is not None:
-                self.min_wavenumber_spin.setValue(region[0])
-                self.max_wavenumber_spin.setValue(region[1])
+            # Block signals to avoid spurious fitting_config_changed during restore.
+            for spin in (self.min_wavenumber_spin, self.max_wavenumber_spin, self.num_peaks_spin):
+                spin.blockSignals(True)
+            try:
+                if region is not None:
+                    self.min_wavenumber_spin.setValue(region[0])
+                    self.max_wavenumber_spin.setValue(region[1])
 
-            shapes = config.get("shapes", [])
-            if not shapes:
-                self._suppress_fitting_config_changed = False
+                shapes = config.get("shapes", [])
+                if not shapes:
+                    return
+
+                self.num_peaks_spin.setValue(len(shapes))
+            finally:
+                for spin in (self.min_wavenumber_spin, self.max_wavenumber_spin, self.num_peaks_spin):
+                    spin.blockSignals(False)
+
+            # Validate before rebuilding: a rebuild resets all peaks to defaults, so
+            # bailing out after that would leave the panel in a partially-restored state.
+            initial_params = config.get("initial_params", [])
+            lower_bounds, upper_bounds = config.get("bounds", ([], []))
+            expected_param_count = sum(4 if shape == "Pseudo-Voigt" else 3 for shape in shapes)
+            if len(initial_params) < expected_param_count:
+                logger.warning("Skipping peak fitting config restore: initial parameters are incomplete")
+                return
+            if len(lower_bounds) < expected_param_count or len(upper_bounds) < expected_param_count:
+                logger.warning("Skipping peak fitting config restore: parameter bounds are incomplete")
                 return
 
-            self.num_peaks_spin.setValue(len(shapes))
+            # Signals were blocked while setting num_peaks, so the UI didn't rebuild
+            # automatically. Rebuild now so shape_combos / amp_spins etc. match shapes.
+            if len(self.shape_combos) != len(shapes):
+                self._rebuild_peaks_ui()
+
+            param_index = 0
+
+            for peak_index, shape in enumerate(shapes):
+                self.shape_combos[peak_index].setCurrentText(shape)
+
+                for param_group in (self.amp_spins[peak_index], self.cen_spins[peak_index], self.wid_spins[peak_index]):
+                    param_group['init'].setValue(initial_params[param_index])
+                    param_group['min'].setValue(lower_bounds[param_index])
+                    param_group['max'].setValue(upper_bounds[param_index])
+                    param_index += 1
+
+                if shape == "Pseudo-Voigt":
+                    self.eta_spins[peak_index]['init'].setValue(initial_params[param_index])
+                    self.eta_spins[peak_index]['min'].setValue(lower_bounds[param_index])
+                    self.eta_spins[peak_index]['max'].setValue(upper_bounds[param_index])
+                    param_index += 1
+
+            self._update_visualization_combo()
+
+            # Restore the saved visualization key, but treat "R-Squared" as the legacy
+            # default — if it was saved only because it used to be index 0, prefer the
+            # new default "Total_Area" instead.
+            restore_key = saved_visualize_key if saved_visualize_key != "R-Squared" else None
+            if restore_key is not None:
+                selected_index = self.visualization_combo.findData(restore_key)
+                if selected_index >= 0:
+                    # Block signals during restore to avoid a double render; emit once after.
+                    self.visualization_combo.blockSignals(True)
+                    self.visualization_combo.setCurrentIndex(selected_index)
+                    self.visualization_combo.blockSignals(False)
         finally:
-            for spin in (self.min_wavenumber_spin, self.max_wavenumber_spin, self.num_peaks_spin):
-                spin.blockSignals(False)
-
-        # Validate before rebuilding: a rebuild resets all peaks to defaults, so
-        # bailing out after that would leave the panel in a partially-restored state.
-        initial_params = config.get("initial_params", [])
-        lower_bounds, upper_bounds = config.get("bounds", ([], []))
-        expected_param_count = sum(4 if shape == "Pseudo-Voigt" else 3 for shape in shapes)
-        if len(initial_params) < expected_param_count:
-            logger.warning("Skipping peak fitting config restore: initial parameters are incomplete")
             self._suppress_fitting_config_changed = False
-            return
-        if len(lower_bounds) < expected_param_count or len(upper_bounds) < expected_param_count:
-            logger.warning("Skipping peak fitting config restore: parameter bounds are incomplete")
-            self._suppress_fitting_config_changed = False
-            return
-
-        # Signals were blocked while setting num_peaks, so the UI didn't rebuild
-        # automatically. Rebuild now so shape_combos / amp_spins etc. match shapes.
-        if len(self.shape_combos) != len(shapes):
-            self._rebuild_peaks_ui()
-
-        param_index = 0
-
-        for peak_index, shape in enumerate(shapes):
-            self.shape_combos[peak_index].setCurrentText(shape)
-
-            for param_group in (self.amp_spins[peak_index], self.cen_spins[peak_index], self.wid_spins[peak_index]):
-                param_group['init'].setValue(initial_params[param_index])
-                param_group['min'].setValue(lower_bounds[param_index])
-                param_group['max'].setValue(upper_bounds[param_index])
-                param_index += 1
-
-            if shape == "Pseudo-Voigt":
-                self.eta_spins[peak_index]['init'].setValue(initial_params[param_index])
-                self.eta_spins[peak_index]['min'].setValue(lower_bounds[param_index])
-                self.eta_spins[peak_index]['max'].setValue(upper_bounds[param_index])
-                param_index += 1
-
-        self._update_visualization_combo()
-
-        # Restore the saved visualization key, but treat "R-Squared" as the legacy
-        # default — if it was saved only because it used to be index 0, prefer the
-        # new default "Total_Area" instead.
-        restore_key = saved_visualize_key if saved_visualize_key != "R-Squared" else None
-        if restore_key is not None:
-            selected_index = self.visualization_combo.findData(restore_key)
-            if selected_index >= 0:
-                # Block signals during restore to avoid a double render; emit once after.
-                self.visualization_combo.blockSignals(True)
-                self.visualization_combo.setCurrentIndex(selected_index)
-                self.visualization_combo.blockSignals(False)
-        self._suppress_fitting_config_changed = False
         self.visualization_parameter_changed.emit(self.visualization_combo.currentText())

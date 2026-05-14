@@ -117,7 +117,7 @@ class OverallStatsWidget(QWidget):
         self.success_rate_label.setToolTip("Percentage of map pixels with complete successful fits.")
         self.failed_fits_label = QLabel("Failed Fits: --")
         self.failed_fits_label.setToolTip(
-            "Pixels where fitting did not succeed. These are counted as not detected / no Si."
+            "Pixels where fitting did not succeed. These are counted as not detected / no signal."
         )
         for label in (self.fitted_pixels_label, self.success_rate_label, self.failed_fits_label):
             self._main_layout.addWidget(label)
@@ -145,7 +145,7 @@ class OverallStatsWidget(QWidget):
         )
         self.no_signal_label = QLabel("Not detected: --")
         self.no_signal_label.setToolTip(
-            "Pixels below the SNR threshold or where fitting failed — treated as no Si detected at this spot."
+            "Pixels below the SNR threshold or where fitting failed — treated as no signal detected at this spot."
         )
         for label in (self.meaningful_pixels_label, self.no_signal_label):
             self._main_layout.addWidget(label)
