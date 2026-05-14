@@ -1544,6 +1544,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         
     def setup_controls(self):
         """Setup controls for map peak fitting."""
+        self._suppress_fitting_config_changed = False
         
         # Region Selection
         region_group = QGroupBox("Fitting Region")
@@ -1561,8 +1562,8 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.max_wavenumber_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.max_wavenumber_spin.setMinimumWidth(50)
         
-        self.min_wavenumber_spin.valueChanged.connect(lambda _: self.fitting_config_changed.emit())
-        self.max_wavenumber_spin.valueChanged.connect(lambda _: self.fitting_config_changed.emit())
+        self.min_wavenumber_spin.valueChanged.connect(self._emit_fitting_config_changed)
+        self.max_wavenumber_spin.valueChanged.connect(self._emit_fitting_config_changed)
 
         region_layout.addWidget(QLabel("Min Wavenumber (cm⁻¹):"))
         region_layout.addWidget(self.min_wavenumber_spin)
@@ -1582,7 +1583,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.num_peaks_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.num_peaks_spin.setMinimumWidth(50)
         self.num_peaks_spin.valueChanged.connect(self._rebuild_peaks_ui)
-        self.num_peaks_spin.valueChanged.connect(lambda _: self.fitting_config_changed.emit())
+        self.num_peaks_spin.valueChanged.connect(self._emit_fitting_config_changed)
         num_peaks_layout.addWidget(self.num_peaks_spin)
         peaks_layout.addLayout(num_peaks_layout)
         
@@ -1650,6 +1651,15 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         self.eta_labels = []
         
         self._rebuild_peaks_ui()
+
+    def _emit_fitting_config_changed(self, *_):
+        if not getattr(self, "_suppress_fitting_config_changed", False):
+            self.fitting_config_changed.emit()
+
+    def _connect_peak_param_signals(self, *param_groups):
+        for param_group in param_groups:
+            for spin in param_group.values():
+                spin.valueChanged.connect(self._emit_fitting_config_changed)
 
     @staticmethod
     def _create_param_row(
@@ -1745,6 +1755,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
             eta_spins, eta_label = self._create_param_row(grid, "Eta (G/L):", 4, 0.5, 0.0, 1.0, step=0.1, range_max=1.0)
             self.eta_spins.append(eta_spins)
             self.eta_labels.append(eta_label)
+            self._connect_peak_param_signals(amp_spins, cen_spins, wid_spins, eta_spins)
             
             # Initially hide eta if not Pseudo-Voigt
             is_pv = shape_combo.currentText() == "Pseudo-Voigt"
@@ -1769,6 +1780,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         for spin in self.eta_spins[idx].values():
             spin.setVisible(is_pv)
         self._update_visualization_combo()
+        self._emit_fitting_config_changed()
         
     def _update_visualization_combo(self):
         current_key = self.visualization_combo.currentData()
@@ -1833,6 +1845,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         """Restore a previously used peak fitting configuration."""
         region = config.get("region")
         saved_visualize_key = config.get("visualize_key")
+        self._suppress_fitting_config_changed = True
 
         # Block signals to avoid spurious fitting_config_changed during restore.
         for spin in (self.min_wavenumber_spin, self.max_wavenumber_spin, self.num_peaks_spin):
@@ -1844,6 +1857,7 @@ class MapPeakFittingControlPanel(BaseControlPanel):
 
             shapes = config.get("shapes", [])
             if not shapes:
+                self._suppress_fitting_config_changed = False
                 return
 
             self.num_peaks_spin.setValue(len(shapes))
@@ -1858,9 +1872,11 @@ class MapPeakFittingControlPanel(BaseControlPanel):
         expected_param_count = sum(4 if shape == "Pseudo-Voigt" else 3 for shape in shapes)
         if len(initial_params) < expected_param_count:
             logger.warning("Skipping peak fitting config restore: initial parameters are incomplete")
+            self._suppress_fitting_config_changed = False
             return
         if len(lower_bounds) < expected_param_count or len(upper_bounds) < expected_param_count:
             logger.warning("Skipping peak fitting config restore: parameter bounds are incomplete")
+            self._suppress_fitting_config_changed = False
             return
 
         # Signals were blocked while setting num_peaks, so the UI didn't rebuild
@@ -1898,4 +1914,5 @@ class MapPeakFittingControlPanel(BaseControlPanel):
                 self.visualization_combo.blockSignals(True)
                 self.visualization_combo.setCurrentIndex(selected_index)
                 self.visualization_combo.blockSignals(False)
+        self._suppress_fitting_config_changed = False
         self.visualization_parameter_changed.emit(self.visualization_combo.currentText())

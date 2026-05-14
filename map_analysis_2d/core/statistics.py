@@ -19,6 +19,7 @@ class OverallStatistics:
     grand_total_area: float
     fitted_count: int
     total_count: int
+    failed_count: int
     success_rate: float
     mean_area: float
     median_area: float
@@ -98,6 +99,7 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
 
     fitted_count = len(total_areas)
     total_count = len(positions)
+    failed_count = total_count - fitted_count
     success_rate = (fitted_count / total_count) * 100.0 if total_count else 0.0
     if any_valid:
         mean_area = float(np.mean(total_areas))
@@ -113,6 +115,7 @@ def compute_overall_statistics(fitting_results: dict) -> Optional[OverallStatist
         grand_total_area=float(grand_total),
         fitted_count=fitted_count,
         total_count=total_count,
+        failed_count=failed_count,
         success_rate=success_rate,
         mean_area=mean_area,
         median_area=median_area,
