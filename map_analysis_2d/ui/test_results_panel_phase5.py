@@ -6,6 +6,8 @@ from PySide6.QtWidgets import QApplication
 
 from map_analysis_2d.ui.pixel_details_widget import PixelDetailsWidget
 from map_analysis_2d.ui.results_panel import ResultsPanel
+from map_analysis_2d.ui.control_panels import MapPeakFittingControlPanel
+from map_analysis_2d.ui.main_window import MapAnalysisMainWindow
 
 
 def _app():
@@ -59,6 +61,84 @@ def test_overall_stats_widget_displays_phase5_metrics_and_histogram():
 
     panel.overall_stats.scientific_toggle.setChecked(True)
     assert "e+" in panel.overall_stats.grand_total_label.text()
+
+
+def test_overall_stats_counts_failed_fits_as_not_detected():
+    _app()
+    panel = ResultsPanel()
+    results = {
+        "peak_shapes": ["Lorentzian"],
+        "map_parameters": {
+            "P1_Amp": {(0, 0): 10.0, (1, 0): 10.0, (2, 0): float("nan")},
+            "P1_Wid": {(0, 0): 3.0, (1, 0): 3.0, (2, 0): float("nan")},
+        },
+        "snr": {(0, 0): 4.0, (1, 0): 1.0},
+        "fit_errors": {(2, 0): "fit failed"},
+    }
+
+    panel.overall_stats.update_from_fitting_results(results)
+
+    assert "Detected" in panel.overall_stats.meaningful_pixels_label.text()
+    assert "1 / 3" in panel.overall_stats.meaningful_pixels_label.text()
+    assert "2 / 3" in panel.overall_stats.no_signal_label.text()
+    assert "Failed Fits: 1" in panel.overall_stats.failed_fits_label.text()
+
+
+def test_peak_fitting_panel_emits_config_changed_for_shape_and_parameter_edits():
+    _app()
+    panel = MapPeakFittingControlPanel()
+    emissions = []
+    panel.fitting_config_changed.connect(lambda: emissions.append(True))
+
+    panel.shape_combos[0].setCurrentText("Gaussian")
+    panel.amp_spins[0]["init"].setValue(panel.amp_spins[0]["init"].value() + 1.0)
+
+    assert len(emissions) >= 2
+
+
+class _DummyControlsPanel:
+    def __init__(self):
+        self.sections = {}
+
+    def clear_dynamic_sections(self):
+        self.sections.clear()
+
+    def add_section(self, name, widget, permanent=False):
+        self.sections[name] = {"widget": widget, "permanent": permanent}
+
+    def add_stretch(self):
+        pass
+
+
+def test_peak_fitting_stats_are_restored_when_recreating_control_panel():
+    _app()
+    window = MapAnalysisMainWindow.__new__(MapAnalysisMainWindow)
+    window.controls_panel = _DummyControlsPanel()
+    window._cache_peak_fitting_config_from_panel = lambda: None
+    window._cache_map_view_settings_from_panel = lambda: None
+    window._get_peak_fitting_tab_index = lambda: 1
+    window._get_map_tab_index = lambda: -1
+    window._get_template_tab_index = lambda: -1
+    window._get_dimensionality_tab_index = lambda: -1
+    window._get_ml_tab_index = lambda: -1
+    window._get_results_tab_index = lambda: -1
+    window._get_microplastic_tab_index = lambda: -1
+    window.peak_fitting_config = None
+    window._saved_peak_fitting_config = None
+    window.map_data = None
+    window.peak_fitting_results = {
+        "peak_shapes": ["Lorentzian"],
+        "map_parameters": {
+            "P1_Amp": {(0, 0): 2.0},
+            "P1_Wid": {(0, 0): 3.0},
+        },
+        "fit_errors": {},
+    }
+
+    window.on_tab_changed(1)
+
+    control_panel = window.controls_panel.sections["peak_fitting_controls"]["widget"]
+    assert "Fitted Pixels: 1 / 1" in control_panel.results_panel.overall_stats.fitted_pixels_label.text()
 
 
 def test_overall_stats_histogram_omits_empty_bins():

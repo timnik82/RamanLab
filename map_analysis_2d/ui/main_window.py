@@ -882,7 +882,9 @@ class MapAnalysisMainWindow(QMainWindow):
             control_panel.visualization_parameter_changed.connect(self.update_peak_fitting_visualization)
             control_panel.export_batch_requested.connect(self.export_map_peak_fitting_to_batch)
             control_panel.export_results_csv_requested.connect(self.export_map_peak_fitting_results_csv)
-            control_panel.fitting_config_changed.connect(control_panel.results_panel.clear)
+            control_panel.fitting_config_changed.connect(
+                lambda: invalidate_peak_fitting_results(self, control_panel)
+            )
             self.controls_panel.add_section("peak_fitting_controls", control_panel)
 
             restore_config = self.peak_fitting_config or self._saved_peak_fitting_config
@@ -896,6 +898,8 @@ class MapAnalysisMainWindow(QMainWindow):
                 self._pending_peak_fitting_stats = None
 
             if self.peak_fitting_results is not None:
+                if pending is None:
+                    control_panel.results_panel.overall_stats.update_from_fitting_results(self.peak_fitting_results)
                 control_panel.export_batch_btn.setEnabled(True)
                 control_panel.export_results_csv_btn.setEnabled(True)
                 # If config was not set above (no cached config), trigger an initial visualization

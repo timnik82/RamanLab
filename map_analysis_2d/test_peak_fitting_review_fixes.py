@@ -31,9 +31,28 @@ class DummyControlPanel:
         self.export_results_csv_btn = DummyButton()
 
 
+class DummyPlot:
+    def __init__(self):
+        self.cleared = False
+
+    def clear_plot(self):
+        self.cleared = True
+
+
+class DummyPeakFittingPlotWidget:
+    def __init__(self):
+        self.map_widget = DummyPlot()
+        self.spectrum_widget = DummyPlot()
+        self.spectrum_panel_visible = True
+
+    def show_spectrum_panel(self, visible):
+        self.spectrum_panel_visible = visible
+
+
 class DummyWindow:
     def __init__(self):
         self.peak_fitting_results = {"old": "results"}
+        self.peak_fitting_plot_widget = DummyPeakFittingPlotWidget()
 
 
 class PeakFittingReviewFixTests(unittest.TestCase):
@@ -50,6 +69,19 @@ class PeakFittingReviewFixTests(unittest.TestCase):
         self.assertIsNone(window.peak_fitting_results)
         self.assertFalse(control_panel.export_batch_btn.enabled)
         self.assertFalse(control_panel.export_results_csv_btn.enabled)
+
+    def test_invalidating_results_clears_stale_peak_fitting_plots(self):
+        state_module = load_module(
+            ROOT / "map_analysis_2d" / "core" / "peak_fitting_state.py",
+            "peak_fitting_state_under_test",
+        )
+        window = DummyWindow()
+
+        state_module.invalidate_peak_fitting_results(window)
+
+        self.assertTrue(window.peak_fitting_plot_widget.map_widget.cleared)
+        self.assertTrue(window.peak_fitting_plot_widget.spectrum_widget.cleared)
+        self.assertFalse(window.peak_fitting_plot_widget.spectrum_panel_visible)
 
     def test_merging_config_preserves_existing_visualization_selection(self):
         state_module = load_module(

@@ -7,6 +7,19 @@ def invalidate_peak_fitting_results(owner, control_panel=None):
     """Clear stale fit results and disable export until a new run completes."""
     owner.peak_fitting_results = None
 
+    plot_widget = getattr(owner, "peak_fitting_plot_widget", None)
+    if plot_widget is not None:
+        map_widget = getattr(plot_widget, "map_widget", None)
+        if map_widget is not None and hasattr(map_widget, "clear_plot"):
+            map_widget.clear_plot()
+
+        spectrum_widget = getattr(plot_widget, "spectrum_widget", None)
+        if spectrum_widget is not None and hasattr(spectrum_widget, "clear_plot"):
+            spectrum_widget.clear_plot()
+
+        if hasattr(plot_widget, "show_spectrum_panel"):
+            plot_widget.show_spectrum_panel(False)
+
     if control_panel is not None and hasattr(control_panel, "results_panel"):
         control_panel.results_panel.clear()
 

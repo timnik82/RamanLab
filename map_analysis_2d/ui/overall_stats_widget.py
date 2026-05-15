@@ -115,7 +115,11 @@ class OverallStatsWidget(QWidget):
         self.fitted_pixels_label.setToolTip("Pixels with all required fitted peak parameters.")
         self.success_rate_label = QLabel("Success Rate: --")
         self.success_rate_label.setToolTip("Percentage of map pixels with complete successful fits.")
-        for label in (self.fitted_pixels_label, self.success_rate_label):
+        self.failed_fits_label = QLabel("Failed Fits: --")
+        self.failed_fits_label.setToolTip(
+            "Pixels where fitting did not succeed. These are counted as not detected / no signal."
+        )
+        for label in (self.fitted_pixels_label, self.success_rate_label, self.failed_fits_label):
             self._main_layout.addWidget(label)
 
         snr_row = QHBoxLayout()
@@ -141,7 +145,7 @@ class OverallStatsWidget(QWidget):
         )
         self.no_signal_label = QLabel("Not detected: --")
         self.no_signal_label.setToolTip(
-            "Pixels below the SNR threshold or that failed to fit — no detectable phase signal at this spot."
+            "Pixels below the SNR threshold or where fitting failed — treated as no signal detected at this spot."
         )
         for label in (self.meaningful_pixels_label, self.no_signal_label):
             self._main_layout.addWidget(label)
@@ -222,6 +226,8 @@ class OverallStatsWidget(QWidget):
         self.fitted_pixels_label.setText("Fitted Pixels: --")
         self.success_rate_label.setText("Success Rate: --")
         self.success_rate_label.setStyleSheet("color: #777;")
+        self.failed_fits_label.setText("Failed Fits: --")
+        self.failed_fits_label.setStyleSheet("color: #777;")
         self.meaningful_pixels_label.setText(f"Detected (SNR ≥ {self.snr_threshold_spin.value():.1f}): --")
         self.meaningful_pixels_label.setStyleSheet("color: #777;")
         self.no_signal_label.setText("Not detected: --")
@@ -266,6 +272,10 @@ class OverallStatsWidget(QWidget):
         self.success_rate_label.setStyleSheet(
             f"color: {self._quality_color(self._stats.success_rate)}; font-weight: bold;"
         )
+        self.failed_fits_label.setText(f"Failed Fits: {self._stats.failed_count:,}")
+        self.failed_fits_label.setStyleSheet(
+            "color: #777;" if self._stats.failed_count == 0 else "color: #c53030; font-weight: bold;"
+        )
 
         threshold = self.snr_threshold_spin.value()
         meaningful = sum(1 for v in self._stats.snr_values if v >= threshold)
@@ -279,9 +289,7 @@ class OverallStatsWidget(QWidget):
         self.meaningful_pixels_label.setStyleSheet(
             f"color: {self._quality_color(meaningful_pct)}; font-weight: bold;"
         )
-        self.no_signal_label.setText(
-            f"Not detected: {no_signal:,} / {total:,}  ({no_signal_pct:.1f}%)"
-        )
+        self.no_signal_label.setText(f"Not detected: {no_signal:,} / {total:,}  ({no_signal_pct:.1f}%)")
 
         self.mean_area_label.setText(
             f"Mean Area: {self._format_number(self._stats.mean_area)} +/- {self._format_number(self._stats.std_area)}"
