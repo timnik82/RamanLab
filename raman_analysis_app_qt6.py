@@ -1354,14 +1354,35 @@ class RamanAnalysisAppQt6(QMainWindow):
     # Cross-platform file operations (replacing your platform-specific code!)
     def import_spectrum(self):
         """Import a Raman spectrum file using PySide6 file dialog."""
+        initial_directory = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        windows_users_directory = Path("/mnt/c/Users")
+        preferred_windows_directory = next(
+            (
+                candidate
+                for candidate in windows_users_directory.glob(
+                    "*/OneDrive - Universidade de Coimbra/+Projects"
+                )
+                if candidate.is_dir()
+            ),
+            None,
+        )
+        if preferred_windows_directory:
+            initial_directory = str(preferred_windows_directory)
+        if self.config:
+            saved_directory = self.config.get("last_spectrum_import_directory")
+            if saved_directory and Path(saved_directory).is_dir():
+                initial_directory = saved_directory
+
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Import Raman Spectrum",
-            QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation),
+            initial_directory,
             "Spectrum files (*.txt *.csv *.dat *.spc *.xy *.asc *.l6s);;LabSpec6 Binary (*.l6s);;Text files (*.txt);;CSV files (*.csv);;Data files (*.dat);;All files (*.*)"
         )
         
         if file_path:
+            if self.config:
+                self.config.set("last_spectrum_import_directory", str(Path(file_path).parent))
             try:
                 self.load_spectrum_file(file_path)
                 self.status_bar.showMessage(f"Loaded: {Path(file_path).name} with enhanced format detection")
